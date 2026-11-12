@@ -2,72 +2,12 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-  <meta name="theme-color" content="#1B1F5E">
-  <meta name="description" content="Tinta: shooter de arena a dos tintas. Sobrevive a las oleadas.">
-  <title>Tinta</title>
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
-  <link rel="preload" href="assets/fonts/bigshoulders-stencil.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="src/style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Juegos</title>
+  <meta http-equiv="refresh" content="0; url=hanamichi/">
+  <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#2A2350;color:#FFF7EE;font:16px system-ui,sans-serif}a{color:#FF8FB8}</style>
 </head>
 <body>
-  <main id="juego" class="juego" aria-label="Tinta">
-    <canvas id="lienzo" aria-hidden="true"></canvas>
-
-    <!-- HUD -->
-    <div class="hud" id="hud" hidden>
-      <div class="hud-izq">
-        <div class="vida" id="vida" aria-label="Vida"></div>
-        <div class="poderes" id="poderes"></div>
-      </div>
-      <div class="hud-der">
-        <div class="oleada"><span class="oleada-num" id="oleada">1</span><span class="oleada-txt">oleada</span></div>
-        <div class="puntos" id="puntos">0</div>
-      </div>
-      <button class="btn-pausa" id="btnPausa" type="button" aria-label="Pausar">
-        <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><rect x="4" y="3" width="4" height="14"/><rect x="12" y="3" width="4" height="14"/></svg>
-      </button>
-      <div class="jefe" id="jefe" hidden>
-        <span class="jefe-nombre">La Prensa</span>
-        <div class="jefe-barra"><i id="jefeBarra"></i></div>
-      </div>
-      <div class="aviso" id="aviso" aria-live="polite"></div>
-    </div>
-
-    <!-- Inicio -->
-    <section class="pantalla pantalla-inicio" id="pInicio">
-      <h1 class="logo" aria-label="Tinta"><span data-t="TINTA">TINTA</span></h1>
-      <p class="lema">Una arena, dos tintas y oleadas sin fin. Aguanta todo lo que puedas.</p>
-      <button class="btn btn-tinta" id="btnJugar" type="button">Jugar</button>
-      <p class="record" id="recordInicio"></p>
-      <dl class="controles" id="controles"></dl>
-      <button class="btn-sonido" id="btnSonidoInicio" type="button"></button>
-    </section>
-
-    <!-- Pausa -->
-    <section class="pantalla pantalla-pausa" id="pPausa" hidden>
-      <h2 class="titulo">En pausa</h2>
-      <button class="btn btn-tinta" id="btnSeguir" type="button">Seguir</button>
-      <button class="btn btn-linea" id="btnSonidoPausa" type="button"></button>
-      <button class="btn btn-linea" id="btnSalir" type="button">Salir al inicio</button>
-    </section>
-
-    <!-- Fin -->
-    <section class="pantalla pantalla-fin" id="pFin" hidden>
-      <h2 class="titulo">Fin de la tirada</h2>
-      <div class="fin-datos">
-        <div><span class="fin-num" id="finPuntos">0</span><span class="fin-et">puntos</span></div>
-        <div><span class="fin-num" id="finOleada">1</span><span class="fin-et">oleada</span></div>
-      </div>
-      <p class="sello" id="finRecord" hidden>Nuevo récord</p>
-      <p class="record" id="finMejor"></p>
-      <button class="btn btn-tinta" id="btnOtra" type="button">Otra tirada</button>
-      <button class="btn btn-linea" id="btnInicio" type="button">Volver al inicio</button>
-    </section>
-  </main>
-
-  <noscript>Tinta necesita JavaScript para funcionar.</noscript>
-  <script type="module" src="src/main.js"></script>
+  <p><a href="hanamichi/">Hanamichi</a> (duelos 3D) o <a href="tinta/">Tinta</a> (arena 2D)</p>
 </body>
 </html>

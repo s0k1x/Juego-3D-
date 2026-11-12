@@ -1,0 +1,4 @@
+Tipografías (subconjunto latino, woff2), licencia SIL Open Font License 1.1:
+- Dela Gothic One — Copyright The Dela Gothic Project Authors
+- M PLUS Rounded 1c — Copyright The M+ FONTS Project Authors
+https://openfontlicense.org

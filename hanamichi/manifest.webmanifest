@@ -1,0 +1,13 @@
+{
+  "name": "Hanamichi",
+  "short_name": "Hanamichi",
+  "description": "Duelos anime en 3D sobre una azotea al atardecer.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#2A2350",
+  "theme_color": "#2A2350",
+  "icons": [{ "src": "assets/icono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
