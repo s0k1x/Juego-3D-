@@ -2,3 +2,5 @@ Tipografías (subconjunto latino, woff2), licencia SIL Open Font License 1.1:
 - Dela Gothic One — Copyright The Dela Gothic Project Authors
 - M PLUS Rounded 1c — Copyright The M+ FONTS Project Authors
 https://openfontlicense.org
+
+Interfaz de duelos (SIL OFL 1.1): Inter (The Inter Project Authors) y Space Grotesk (The Space Grotesk Project Authors), subconjunto latino.

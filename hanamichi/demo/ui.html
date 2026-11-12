@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Demo de interfaz</title>
+  <link rel="stylesheet" href="../src/estilo.css">
+  <style>
+    /* Fondo que simula la escena 3D: bloques pastel y un personaje. */
+    #fondo { position: fixed; inset: 0; background: #BFE3F7; overflow: hidden; }
+    #fondo i { position: absolute; border: 3px solid #10131C; border-radius: 10px; }
+    #fondo .suelo { left: -5%; right: -5%; bottom: 0; height: 42%; background: #E9EDF5; border-width: 3px 0 0; border-radius: 0; }
+    .juego { background: transparent; }
+    .carga { display: none !important; }
+    .carga.demo-carga { display: grid !important; }
+  </style>
+</head>
+<body>
+  <div id="fondo" aria-hidden="true">
+    <i class="suelo"></i>
+    <i style="left:6%;top:34%;width:20%;height:26%;background:#F7C9A8"></i>
+    <i style="left:30%;top:46%;width:12%;height:14%;background:#C9B8F2"></i>
+    <i style="left:46%;top:30%;width:14%;height:30%;background:#B9E6C9"></i>
+    <i style="left:66%;top:40%;width:24%;height:20%;background:#FBE3D3"></i>
+    <i style="left:78%;top:22%;width:10%;height:18%;background:#D3E8F5"></i>
+    <i style="left:40%;top:56%;width:8%;height:30%;background:#FF7A1A;border-radius:30px 30px 8px 8px"></i>
+  </div>
+  <div id="raiz"></div>
+  <script type="module" src="./ui-demo.js"></script>
+</body>
+</html>

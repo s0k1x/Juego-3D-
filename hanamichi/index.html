@@ -3,12 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-  <meta name="theme-color" content="#2A2350">
-  <meta name="description" content="Hanamichi: arena de héroes anime en primera persona. Partidas rápidas contra bots u online.">
-  <title>Hanamichi</title>
+  <meta name="theme-color" content="#F3F5FA">
+  <meta name="description" content="Hanamichi Duelos: shooter de duelos por rondas en primera persona. 1 contra 1, 2 contra 2 y 3 contra 3, contra bots u online.">
+  <title>Hanamichi Duelos</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/icono.svg" type="image/svg+xml">
-  <link rel="preload" href="assets/fonts/dela-gothic.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/space-grotesk-700.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="src/estilo.css">
   <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
 </head>
@@ -18,173 +19,295 @@
 
     <!-- Efectos de pantalla -->
     <div class="lineas" id="lineas" aria-hidden="true"></div>
-    <div class="mira-franco" id="miraFranco" hidden aria-hidden="true"></div>
     <div class="dano-borde" id="danoBorde" aria-hidden="true"></div>
     <div class="borde-estado" id="bordeEstado" aria-hidden="true"></div>
+    <div class="mira-franco" id="miraFranco" hidden aria-hidden="true"><i class="mf-h"></i><i class="mf-v"></i><b></b></div>
 
     <!-- HUD -->
     <div class="hud" id="hud" hidden>
-      <div class="marcador" aria-label="Marcador">
-        <div class="m-lado m-yo"><span>Tú</span><b id="misBajas">0</b></div>
-        <div class="m-tiempo"><b id="tiempo">5:00</b><small id="meta">Primero a 20</small></div>
-        <div class="m-lado m-lider"><b id="liderBajas">0</b><span id="liderNombre">Líder</span></div>
+      <div class="sup">
+        <div class="marcador" aria-label="Marcador de rondas">
+          <div class="puntos az" id="puntosAz" aria-hidden="true"></div>
+          <b class="m-num az" id="mAz">0</b>
+          <div class="m-medio"><b id="tiempo">1:30</b><small id="rondaTxt">Ronda 1</small></div>
+          <b class="m-num na" id="mNa">0</b>
+          <div class="puntos na" id="puntosNa" aria-hidden="true"></div>
+        </div>
+        <div class="vivos" aria-label="Jugadores vivos">
+          <ul class="vivos-eq az" id="vivosAz"></ul>
+          <ul class="vivos-eq na" id="vivosNa"></ul>
+        </div>
+        <div class="espectando" id="espectando" hidden>Viendo a <b id="espNombre">—</b></div>
       </div>
+
+      <button class="btn-pausa" id="btnPausa" type="button" aria-label="Pausa">
+        <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><rect x="4" y="3" width="4" height="14" rx="1.2"/><rect x="12" y="3" width="4" height="14" rx="1.2"/></svg>
+      </button>
       <div class="red-chip" id="redChip" hidden></div>
+      <div class="fps" id="fps" hidden></div>
       <ol class="feed" id="feed" aria-live="polite"></ol>
 
-      <div class="cruz" id="cruz" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-      <div class="marca" id="marca" aria-hidden="true"></div>
-      <div class="direccion" id="direccion" aria-hidden="true"></div>
+      <div class="cruz" id="cruz" aria-hidden="true"><i></i><i></i><i></i><i></i><b></b></div>
+      <div class="marca" id="marca" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <div class="direcciones" id="direcciones" aria-hidden="true"></div>
       <div class="numeros" id="numeros" aria-hidden="true"></div>
       <div class="anuncio" id="anuncio" aria-live="polite"></div>
+      <div class="aviso" id="aviso" aria-live="polite"><span id="avisoTxt"></span></div>
 
-      <div class="vida" aria-label="Vida">
-        <span class="vida-heroe" id="vidaHeroe">Sakura</span>
-        <div class="vida-fila">
-          <span class="vida-num" id="vidaNum">100</span>
-          <div class="vida-barras">
-            <div class="escudo-barra"><i id="escudoBarra"></i></div>
-            <div class="vida-barra"><i id="vidaBarra"></i><b id="vidaFantasma"></b></div>
-          </div>
+      <div class="ronda-banner" id="rondaBanner" aria-live="polite"><small>Duelo</small><b id="rondaBannerTxt">Ronda 1</b></div>
+      <div class="cuenta" id="cuenta" aria-live="assertive"></div>
+      <div class="fin-ronda" id="finRonda" hidden aria-live="polite">
+        <small id="frMotivo">Equipo rival eliminado</small>
+        <h2 id="frTitulo">Ronda ganada</h2>
+        <div class="fr-marcador"><b class="az" id="frAz">3</b><i>–</i><b class="na" id="frNa">2</b></div>
+      </div>
+
+      <div class="vida" id="vida" aria-label="Vida">
+        <div class="vida-cifra"><b id="vidaNum">100</b><small>vida</small></div>
+        <div class="vida-barras">
+          <div class="escudo-barra" id="escudoCaja"><i id="escudoBarra"></i></div>
+          <div class="vida-barra"><b id="vidaFantasma"></b><i id="vidaBarra"></i></div>
         </div>
       </div>
 
-      <div class="poderes" id="poderes">
-        <div class="poder" data-k="q"><kbd>Q</kbd><span class="p-nombre"></span><span class="p-cd"></span></div>
-        <div class="poder" data-k="e"><kbd>E</kbd><span class="p-nombre"></span><span class="p-cd"></span></div>
-        <div class="poder definitiva" data-k="x"><kbd>X</kbd><span class="p-nombre"></span><span class="p-cd"></span></div>
-      </div>
-
-      <div class="arma">
-        <div class="arma-municion"><span id="municion">30</span><small id="cargador">/ 30</small></div>
-        <div class="arma-nombre" id="armaNombre">Rifle Hikari</div>
+      <div class="inventario">
         <ol class="ranuras" id="ranuras"></ol>
+        <div class="util" id="util" aria-label="Utilidad">
+          <kbd>Q</kbd>
+          <svg class="ico" viewBox="0 0 96 40" id="utilIcono" aria-hidden="true"></svg>
+          <span class="util-cd" id="utilCd"></span>
+        </div>
       </div>
 
-      <button class="btn-pausa" id="btnPausa" type="button" aria-label="Pausar">
-        <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><rect x="4" y="3" width="4" height="14" rx="1"/><rect x="12" y="3" width="4" height="14" rx="1"/></svg>
-      </button>
-      <div class="aviso" id="aviso" aria-live="polite"></div>
-      <div class="cuenta" id="cuenta" aria-live="polite"></div>
+      <div class="arma" id="arma">
+        <div class="municion"><b id="municion">30</b><small id="cargador">/ 30</small></div>
+        <div class="arma-nombre" id="armaNombre">Vector</div>
+        <div class="recarga-barra" id="recargaCaja"><i id="recargaBarra"></i></div>
+      </div>
 
       <div class="muerto" id="muerto" hidden>
         <small>Te ha eliminado</small>
         <b id="muertoNombre">—</b>
-        <span id="muertoHeroe"></span>
-        <p id="muertoCuenta">Reapareces en 3</p>
+        <p id="muertoArma"></p>
+        <div class="muerto-vida" id="muertoVida"></div>
       </div>
+
       <div class="tabla" id="tabla" hidden>
-        <h2>Todos contra todos</h2>
-        <table><thead><tr><th>#</th><th>Jugador</th><th>Héroe</th><th>Bajas</th><th>Muertes</th></tr></thead><tbody id="tablaCuerpo"></tbody></table>
+        <header><h2>Tabla de la ronda</h2><span id="tablaInfo">Ronda 1 · 2 – 1</span></header>
+        <div class="tabla-cols">
+          <section class="tabla-eq az"><h3>Tu equipo</h3><div class="fila cab"><span>Jugador</span><span>B</span><span>M</span><span>Daño</span></div><div id="tablaAz"></div></section>
+          <section class="tabla-eq na"><h3>Rivales</h3><div class="fila cab"><span>Jugador</span><span>B</span><span>M</span><span>Daño</span></div><div id="tablaNa"></div></section>
+        </div>
+        <footer>B = bajas · M = muertes</footer>
       </div>
+
+      <aside class="guia" id="guia" hidden>
+        <h3>Tu primer duelo</h3>
+        <ul>
+          <li>Gana quien llegue a <b>5 rondas</b>.</li>
+          <li>No reapareces dentro de la ronda: <b>al caer, mira a tu equipo</b>.</li>
+          <li>Apunta a la cabeza: <b>el crítico</b> hace más daño.</li>
+        </ul>
+        <button class="btn btn-mini" id="btnGuia" type="button">Entendido</button>
+      </aside>
     </div>
 
     <!-- Controles táctiles -->
     <div class="tactil" id="tactil" hidden>
-      <button type="button" class="t-btn t-disparar" data-accion="disparar" aria-label="Disparar"></button>
-      <button type="button" class="t-btn t-saltar" data-accion="saltar" aria-label="Saltar">Saltar</button>
-      <button type="button" class="t-btn t-agachar" data-accion="agachar" aria-label="Deslizar o agacharse">Deslizar</button>
-      <button type="button" class="t-btn t-apuntar" data-accion="apuntar" aria-label="Apuntar">Apuntar</button>
-      <button type="button" class="t-btn t-recargar" data-accion="recargar" aria-label="Recargar">Recargar</button>
-      <button type="button" class="t-btn t-arma" data-accion="siguiente" aria-label="Cambiar de arma">Arma</button>
-      <button type="button" class="t-btn t-granada" data-accion="granada" aria-label="Lanzar granada">Granada</button>
-      <button type="button" class="t-btn t-poder t-q" data-accion="q" aria-label="Habilidad">Q</button>
-      <button type="button" class="t-btn t-poder t-e" data-accion="e" aria-label="Poder">E</button>
-      <button type="button" class="t-btn t-poder t-x" data-accion="x" aria-label="Definitiva">X</button>
-      <button type="button" class="t-btn t-tabla" data-accion="tabla" aria-label="Marcador">Tabla</button>
+      <button type="button" class="t-btn t-disparar" data-accion="disparar" aria-label="Disparar">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="9" fill="none" stroke-width="3"/><circle cx="16" cy="16" r="2.5"/><path d="M16 2v6M16 24v6M2 16h6M24 16h6" stroke-width="3" stroke-linecap="round"/></svg>
+      </button>
+      <button type="button" class="t-btn t-apuntar" data-accion="apuntar" aria-label="Apuntar">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="10" fill="none" stroke-width="3"/><path d="M16 4v8M16 20v8M4 16h8M20 16h8" stroke-width="3" stroke-linecap="round"/></svg>
+      </button>
+      <button type="button" class="t-btn t-saltar" data-accion="saltar" aria-label="Saltar">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M8 20l8-9 8 9M8 27l8-9 8 9" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button type="button" class="t-btn t-agachar" data-accion="agachar" aria-label="Deslizar o agacharse">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 12l9 9 9-9" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 26h20" stroke-width="3.5" stroke-linecap="round"/></svg>
+      </button>
+      <button type="button" class="t-btn t-util" data-accion="util" aria-label="Usar utilidad">
+        <svg class="ico" viewBox="0 0 96 40" id="tUtilIcono" aria-hidden="true"></svg>
+        <span class="t-cd" id="tUtilCd"></span>
+      </button>
+      <button type="button" class="t-btn t-recargar" data-accion="recargar" aria-label="Recargar">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M25 12a10 10 0 1 0 1 8" fill="none" stroke-width="3.5" stroke-linecap="round"/><path d="M26 5v8h-8" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button type="button" class="t-btn t-siguiente" data-accion="siguiente" aria-label="Cambiar de arma">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 11h19l-5-5M26 21H7l5 5" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button type="button" class="t-btn t-tabla" data-accion="tabla" aria-label="Tabla de jugadores">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 9h20M6 16h20M6 23h20" fill="none" stroke-width="3.5" stroke-linecap="round"/></svg>
+      </button>
     </div>
 
     <!-- Menú principal -->
-    <section class="pantalla menu" id="pMenu">
-      <div class="titulo">
-        <span class="kanji" aria-hidden="true">花道</span>
-        <h1>Hanamichi</h1>
-        <p class="lema">Arena de héroes en primera persona. Elige héroe, entra y llega el primero a 20 bajas.</p>
-      </div>
-      <div class="panel">
-        <label class="nombre-campo">Tu nombre <input id="nombre" type="text" maxlength="14" autocomplete="nickname" placeholder="Jugador"></label>
-        <h2 class="panel-titulo">Elige héroe</h2>
-        <div class="heroes" id="heroes" role="radiogroup" aria-label="Héroe"></div>
-        <div class="heroe-info" id="heroeInfo"></div>
-        <button class="btn btn-principal" id="btnJugar" type="button">Jugar contra bots</button>
-        <div class="segmentos" id="dificultad" role="radiogroup" aria-label="Dificultad de los bots">
-          <button type="button" data-v="facil">Tranquilos</button>
-          <button type="button" data-v="normal">Equilibrados</button>
-          <button type="button" data-v="dificil">Implacables</button>
+    <section class="pantalla menu" id="pMenu" aria-label="Menú principal">
+      <div class="menu-grid">
+        <div class="tarjeta menu-izq">
+          <header class="titulo">
+            <h1>Hanamichi <span>Duelos</span></h1>
+            <p>Duelos por rondas en primera persona. Gana quien llegue a 5 rondas.</p>
+          </header>
+          <button class="btn btn-principal btn-grande" id="btnJugar" type="button">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>
+            Jugar duelo
+          </button>
+          <div class="ajustes-juego">
+            <div class="campo">
+              <span class="etiqueta" id="lbModo">Modo</span>
+              <div class="seg" id="segModo" role="radiogroup" aria-labelledby="lbModo">
+                <button type="button" role="radio" data-v="1v1">1 vs 1</button>
+                <button type="button" role="radio" data-v="2v2">2 vs 2</button>
+                <button type="button" role="radio" data-v="3v3">3 vs 3</button>
+              </div>
+            </div>
+            <div class="campo">
+              <span class="etiqueta" id="lbDif">Bots</span>
+              <div class="seg" id="segDif" role="radiogroup" aria-labelledby="lbDif">
+                <button type="button" role="radio" data-v="facil">Fácil</button>
+                <button type="button" role="radio" data-v="normal">Normal</button>
+                <button type="button" role="radio" data-v="dificil">Difícil</button>
+              </div>
+            </div>
+            <div class="campo ancho">
+              <span class="etiqueta" id="lbMapa">Mapa</span>
+              <div class="seg" id="segMapa" role="radiogroup" aria-labelledby="lbMapa">
+                <button type="button" role="radio" data-v="azar">Al azar</button>
+                <button type="button" role="radio" data-v="azotea">Azotea</button>
+                <button type="button" role="radio" data-v="muelle">Muelle</button>
+                <button type="button" role="radio" data-v="patio">Patio</button>
+              </div>
+            </div>
+          </div>
+          <div class="online">
+            <span class="etiqueta">Online</span>
+            <button class="btn btn-online" id="btnRapida" type="button">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke-width="2.4"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" fill="none" stroke-width="2.2"/></svg>
+              Partida rápida online
+            </button>
+            <div class="sala">
+              <input id="codigoSala" type="text" maxlength="6" placeholder="Código de sala" autocapitalize="characters" autocomplete="off" spellcheck="false" aria-label="Código de sala">
+              <button class="btn btn-sec btn-peq" id="btnUnirse" type="button">Unirse</button>
+              <button class="btn btn-sec btn-peq" id="btnCrear" type="button">Crear sala</button>
+            </div>
+          </div>
+          <footer class="menu-pie">
+            <label class="nombre-campo"><span class="etiqueta">Tu nombre</span><input id="nombre" type="text" maxlength="14" autocomplete="nickname" placeholder="Jugador" spellcheck="false"></label>
+            <button class="btn btn-sec btn-peq" id="btnAjustes" type="button">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10" fill="none" stroke-width="2.4" stroke-linecap="round"/><circle cx="16" cy="7" r="2.4" fill="none" stroke-width="2.4"/><circle cx="8" cy="17" r="2.4" fill="none" stroke-width="2.4"/></svg>
+              Ajustes
+            </button>
+            <p class="stats" id="statsMenu"></p>
+          </footer>
         </div>
-        <h2 class="panel-titulo">Online</h2>
-        <button class="btn btn-online" id="btnRapida" type="button">Partida rápida online</button>
-        <div class="sala">
-          <input id="codigoSala" type="text" maxlength="6" placeholder="Código de sala" autocapitalize="characters" spellcheck="false" aria-label="Código de sala">
-          <button class="btn-mini" id="btnUnirse" type="button">Unirse</button>
-          <button class="btn-mini" id="btnCrear" type="button">Crear sala</button>
-        </div>
-        <div class="menu-pie">
-          <button class="btn-texto" id="btnAjustes" type="button">Ajustes y controles</button>
-          <p class="stats" id="statsMenu"></p>
-        </div>
+        <div class="menu-centro" aria-hidden="true"></div>
+        <div class="tarjeta menu-der" id="equipoMenu" aria-label="Tu equipo"></div>
       </div>
     </section>
 
-    <!-- Conectando -->
-    <section class="pantalla velo" id="pConectando" hidden>
-      <div class="caja">
-        <h2 class="grande" id="conTitulo">Conectando…</h2>
+    <!-- Tu equipo (pausa y entre rondas) -->
+    <section class="pantalla velo" id="pEquipo" hidden aria-label="Tu equipo">
+      <div class="caja caja-equipo">
+        <div id="equipoModal"></div>
+        <button class="btn btn-principal" id="btnCerrarEquipo" type="button">Listo</button>
+        <p class="nota">Los cambios valen desde la siguiente ronda.</p>
+      </div>
+    </section>
+
+    <!-- Conectando / error de red -->
+    <section class="pantalla velo" id="pConectando" hidden aria-label="Conexión">
+      <div class="caja caja-peq">
+        <div class="rueda" id="conRueda" aria-hidden="true"></div>
+        <h2 id="conTitulo">Conectando…</h2>
         <p id="conTexto">Buscando la sala.</p>
-        <button class="btn btn-sec" id="btnCancelarCon" type="button">Volver</button>
+        <button class="btn btn-sec" id="btnCancelarCon" type="button">Cancelar</button>
       </div>
     </section>
 
     <!-- Pausa -->
-    <section class="pantalla velo" id="pPausa" hidden>
-      <div class="caja">
+    <section class="pantalla velo" id="pPausa" hidden aria-label="Pausa">
+      <div class="caja caja-ancha">
         <h2 class="grande">Pausa</h2>
-        <p class="nota" id="pausaNota" hidden>La partida online sigue mientras estás aquí.</p>
-        <button class="btn btn-principal" id="btnSeguir" type="button">Seguir</button>
-        <h3 class="panel-titulo">Cambiar de héroe (al reaparecer)</h3>
-        <div class="heroes mini" id="heroesPausa"></div>
-        <button class="btn btn-sec" id="btnInvitar" type="button" hidden>Copiar enlace de invitación</button>
-        <button class="btn btn-sec" id="btnAjustesPausa" type="button">Ajustes</button>
-        <button class="btn btn-sec" id="btnAbandonar" type="button">Salir al menú</button>
-        <dl class="ayuda" id="ayuda"></dl>
+        <div class="pausa-grid">
+          <div class="pausa-botones">
+            <button class="btn btn-principal" id="btnSeguir" type="button">Seguir</button>
+            <button class="btn btn-sec" id="btnEquipoPausa" type="button">Tu equipo</button>
+            <button class="btn btn-sec" id="btnAjustesPausa" type="button">Ajustes</button>
+            <button class="btn btn-sec" id="btnInvitar" type="button" hidden>Copiar invitación</button>
+            <button class="btn btn-peligro" id="btnAbandonar" type="button">Salir</button>
+            <p class="nota" id="pausaNota" hidden>La partida online sigue mientras estás aquí.</p>
+          </div>
+          <div class="chuleta">
+            <h3>Controles</h3>
+            <dl class="ayuda" id="ayuda"></dl>
+          </div>
+        </div>
       </div>
     </section>
 
     <!-- Ajustes -->
-    <section class="pantalla velo" id="pAjustes" hidden>
-      <div class="caja">
+    <section class="pantalla velo" id="pAjustes" hidden aria-label="Ajustes">
+      <div class="caja caja-ancha">
         <h2 class="grande">Ajustes</h2>
-        <label class="ajuste">Sensibilidad <input type="range" id="ajSens" min="0.2" max="3" step="0.05"><output id="ajSensV"></output></label>
-        <label class="ajuste">Campo de visión <input type="range" id="ajFov" min="65" max="105" step="1"><output id="ajFovV"></output></label>
-        <label class="ajuste">Volumen <input type="range" id="ajVol" min="0" max="1" step="0.05"><output id="ajVolV"></output></label>
-        <div class="ajuste">Correr
-          <div class="segmentos mini" id="ajCorrer"><button type="button" data-v="si">Siempre (Mayús anda)</button><button type="button" data-v="no">Con Mayús</button></div>
+        <div class="ajustes-grid">
+          <div class="ajustes-col">
+            <label class="ajuste"><span>Sensibilidad</span><input type="range" id="ajSens" min="0.2" max="3" step="0.05"><output id="ajSensV"></output></label>
+            <label class="ajuste"><span>Campo de visión</span><input type="range" id="ajFov" min="65" max="105" step="1"><output id="ajFovV"></output></label>
+            <label class="ajuste"><span>Volumen</span><input type="range" id="ajVol" min="0" max="1" step="0.05"><output id="ajVolV"></output></label>
+            <label class="ajuste"><span>Música</span><input type="range" id="ajMus" min="0" max="1" step="0.05"><output id="ajMusV"></output></label>
+            <div class="ajuste ajuste-seg">
+              <span id="lbCal">Calidad</span>
+              <div class="seg" id="segCal" role="radiogroup" aria-labelledby="lbCal">
+                <button type="button" role="radio" data-v="auto">Auto</button>
+                <button type="button" role="radio" data-v="alta">Alta</button>
+                <button type="button" role="radio" data-v="baja">Baja</button>
+              </div>
+            </div>
+            <div class="ajuste ajuste-seg">
+              <span id="lbFps">Mostrar FPS</span>
+              <button type="button" class="interruptor" id="ajFps" role="switch" aria-checked="false" aria-labelledby="lbFps"><i></i></button>
+            </div>
+          </div>
+          <div class="chuleta">
+            <h3 id="ayudaTitulo">Controles</h3>
+            <dl class="ayuda" id="ayudaAjustes"></dl>
+          </div>
         </div>
-        <div class="ajuste">Calidad
-          <div class="segmentos mini" id="ajCal"><button type="button" data-v="auto">Automática</button><button type="button" data-v="alta">Alta</button><button type="button" data-v="baja">Ligera</button></div>
-        </div>
-        <dl class="ayuda" id="ayudaAjustes"></dl>
         <button class="btn btn-principal" id="btnCerrarAjustes" type="button">Listo</button>
       </div>
     </section>
 
-    <!-- Final -->
-    <section class="pantalla velo" id="pFin" hidden>
-      <div class="caja fin">
+    <!-- Fin de partida -->
+    <section class="pantalla velo" id="pFin" hidden aria-label="Fin de la partida">
+      <div class="caja caja-fin" id="finCaja">
+        <small class="fin-sup" id="finSup">Fin del duelo</small>
         <h2 class="grande" id="finTitulo">Victoria</h2>
-        <p class="fin-marcador" id="finMarcador">1.º puesto</p>
-        <ol class="ranking" id="finRanking"></ol>
-        <dl class="fin-stats" id="finStats"></dl>
-        <p class="stats" id="finRacha"></p>
-        <button class="btn btn-principal" id="btnRevancha" type="button">Otra partida</button>
-        <button class="btn btn-sec" id="btnMenu" type="button">Volver al menú</button>
+        <div class="fin-marcador" aria-label="Marcador de rondas"><b class="az" id="finAz">5</b><i>–</i><b class="na" id="finNa">3</b></div>
+        <div class="fin-tablas">
+          <section class="tabla-eq az"><h3>Tu equipo</h3><div class="fila cab"><span>Jugador</span><span>B</span><span>M</span><span>Daño</span></div><div id="finTablaAz"></div></section>
+          <section class="tabla-eq na"><h3>Rivales</h3><div class="fila cab"><span>Jugador</span><span>B</span><span>M</span><span>Daño</span></div><div id="finTablaNa"></div></section>
+        </div>
+        <p class="stats" id="finResumen"></p>
+        <div class="fin-botones">
+          <button class="btn btn-principal" id="btnRevancha" type="button">Revancha</button>
+          <button class="btn btn-sec" id="btnMenu" type="button">Volver al menú</button>
+        </div>
       </div>
     </section>
 
     <div class="toast" id="toast" role="status" hidden></div>
-    <div class="carga" id="carga">Preparando la azotea…</div>
+
+    <!-- Pantalla de carga -->
+    <div class="carga" id="carga">
+      <div class="carga-caja">
+        <div class="carga-logo">Hanamichi <span>Duelos</span></div>
+        <div class="carga-barra" aria-hidden="true"><i></i></div>
+        <p class="carga-consejo" id="cargaConsejo">Consejo: deslizarte te hace más difícil de acertar y mantiene tu velocidad.</p>
+      </div>
+    </div>
   </main>
-  <noscript>Hanamichi necesita JavaScript y WebGL.</noscript>
+  <noscript>Hanamichi Duelos necesita JavaScript y WebGL.</noscript>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>
