@@ -170,9 +170,9 @@ export const audio = {
   },
   getVolume() { return volumen; },
 
-  // tipo: 'rifle' | 'escopeta' | 'franco' | 'pistola'; distancia en metros
+  // tipo: 'rifle' | 'escopeta' | 'franco' | 'pistola' | 'subfusil'; distancia en metros
   disparo(tipo, distancia = 0) {
-    if (!listo() || !libre('disparo_' + tipo, 40)) return;
+    if (!listo() || !libre('disparo_' + tipo + (distancia > 0 ? 'l' : ''), tipo === 'subfusil' ? 30 : 40)) return;
     const dist = Math.max(0, Number(distancia) || 0);
     if (tipo === 'escopeta') {
       ruido({ tipo: 'lowpass', freq: 1400, f1: 200, dur: 0.25, vol: 0.5, dist });
@@ -181,6 +181,9 @@ export const audio = {
       ruido({ tipo: 'bandpass', freq: 2500, f1: 500, q: 0.8, dur: 0.12, vol: 0.55, dist, eco: true });
       ruido({ tipo: 'lowpass', freq: 900, f1: 150, dur: 0.6, vol: 0.25, dist });
       tono({ f0: 110, f1: 40, dur: 0.15, vol: 0.4, dist });
+    } else if (tipo === 'subfusil') {
+      ruido({ tipo: 'bandpass', freq: 2600, q: 1.4, dur: 0.06, vol: 0.32, dist });
+      tono({ f0: 180, f1: 90, dur: 0.06, vol: 0.25, dist });
     } else if (tipo === 'pistola') {
       ruido({ tipo: 'highpass', freq: 2200, dur: 0.07, vol: 0.3, dist });
       tono({ f0: 300, f1: 120, dur: 0.05, vol: 0.2, dist });
@@ -248,9 +251,83 @@ export const audio = {
     ruido({ tipo: 'lowpass', freq: 500, dur: 0.05, vol: 0.06 });
   },
 
-  salto() {
+  salto(doble = false) {
     if (!listo() || !libre('salto', 100)) return;
-    tono({ f0: 180, f1: 320, dur: 0.1, vol: 0.08 });
+    tono({ f0: doble ? 260 : 180, f1: doble ? 520 : 320, dur: 0.1, vol: 0.08 });
+    if (doble) ruido({ tipo: 'bandpass', freq: 900, f1: 2400, q: 1.5, dur: 0.15, vol: 0.12 });
+  },
+
+  aterrizar() {
+    if (!listo() || !libre('aterrizar', 150)) return;
+    ruido({ tipo: 'lowpass', freq: 600, f1: 120, dur: 0.12, vol: 0.22 });
+  },
+
+  saltador(distancia = 0) {
+    if (!listo() || !libre('saltador', 120)) return;
+    tono({ f0: 220, f1: 880, dur: 0.35, vol: 0.18, dist: distancia });
+    ruido({ tipo: 'bandpass', freq: 800, f1: 3000, q: 1, dur: 0.3, vol: 0.18, dist: distancia });
+  },
+
+  destello(distancia = 0) {
+    if (!listo()) return;
+    ruido({ tipo: 'bandpass', freq: 3000, f1: 600, q: 2, dur: 0.22, vol: 0.3, dist: distancia });
+    tono({ tipo: 'triangle', f0: 1400, f1: 2400, dur: 0.18, vol: 0.12, dist: distancia });
+  },
+
+  curar(distancia = 0) {
+    if (!listo()) return;
+    jingle([[784, 0, 0.15], [988, 0.1, 0.15], [1175, 0.2, 0.3]], 'sine', distancia > 20 ? 0.04 : 0.1);
+  },
+
+  rayo(distancia = 0) {
+    if (!listo() || !libre('rayo', 60)) return;
+    ruido({ tipo: 'highpass', freq: 1800, dur: 0.25, vol: 0.45, dist: distancia, eco: true });
+    tono({ tipo: 'sawtooth', f0: 900, f1: 80, dur: 0.3, vol: 0.18, dist: distancia });
+  },
+
+  hielo(distancia = 0) {
+    if (!listo()) return;
+    ruido({ tipo: 'bandpass', freq: 5000, f1: 1500, q: 3, dur: 0.4, vol: 0.25, dist: distancia });
+    tono({ tipo: 'triangle', f0: 2093, dur: 0.4, vol: 0.08, dist: distancia });
+    tono({ tipo: 'triangle', f0: 2637, dur: 0.35, vol: 0.06, t0: 0.05, dist: distancia });
+  },
+
+  fuego(distancia = 0) {
+    if (!listo() || !libre('fuego', 60)) return;
+    ruido({ tipo: 'lowpass', freq: 2500, f1: 400, dur: 0.35, vol: 0.35, dist: distancia });
+    tono({ f0: 160, f1: 70, dur: 0.25, vol: 0.2, dist: distancia });
+  },
+
+  definitiva(distancia = 0) {
+    if (!listo()) return;
+    tono({ tipo: 'sawtooth', f0: 110, f1: 440, dur: 0.6, vol: 0.18, dist: distancia, prio: true });
+    tono({ tipo: 'triangle', f0: 220, f1: 880, dur: 0.6, vol: 0.14, dist: distancia, prio: true });
+    ruido({ tipo: 'bandpass', freq: 500, f1: 4000, q: 1, dur: 0.7, vol: 0.25, dist: distancia, prio: true });
+  },
+
+  listoPoder() {
+    if (!listo() || !libre('listo', 300)) return;
+    tono({ f0: 1320, dur: 0.08, vol: 0.06 });
+    tono({ f0: 1760, dur: 0.1, vol: 0.05, t0: 0.06 });
+  },
+
+  baja(racha = 1) {
+    if (!listo()) return;
+    const base = 660 * Math.pow(1.122, Math.min(6, racha - 1));
+    tono({ tipo: 'triangle', f0: base, dur: 0.12, vol: 0.2, prio: true });
+    tono({ tipo: 'triangle', f0: base * 1.5, dur: 0.25, vol: 0.18, t0: 0.08, prio: true });
+    ruido({ tipo: 'highpass', freq: 4000, dur: 0.08, vol: 0.12, prio: true });
+  },
+
+  muerte() {
+    if (!listo()) return;
+    tono({ tipo: 'sawtooth', f0: 330, f1: 80, dur: 0.7, vol: 0.18, prio: true });
+    ruido({ tipo: 'lowpass', freq: 900, f1: 100, dur: 0.6, vol: 0.3, prio: true });
+  },
+
+  reaparecer() {
+    if (!listo()) return;
+    tono({ f0: 523, f1: 1046, dur: 0.25, vol: 0.12, prio: true });
   },
 
   deslizar() {

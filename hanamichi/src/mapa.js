@@ -92,6 +92,76 @@ export class Mapa {
     this._rejilla();
     this._navegacion();
     this._skyline();
+    this._saltadores();
+    this.dinamicas = []; // muros de hielo temporales: {min, max, malla, fin, id}
+  }
+
+  // Saltadores: discos que te lanzan al tejado de la caseta o encima del depósito.
+  _saltadores() {
+    this.listaSaltadores = [];
+    const datos = [
+      [0, 4.6, 0, -1, 16.2], [0, -4.6, 0, 1, 16.2],
+      [-10.5, 9.2, 0, 1, 13.4], [10.5, -9.2, 0, -1, 13.4],
+    ];
+    const disco = new THREE.CylinderGeometry(0.85, 0.95, 0.12, 20).translate(0, 0.06, 0);
+    const matDisco = new THREE.MeshBasicMaterial({ color: 0x3EE0FF });
+    const anilloGeo = new THREE.RingGeometry(0.55, 0.75, 24).rotateX(-Math.PI / 2);
+    this.anillos = [];
+    for (const [x, z, dx, dz, fuerza] of datos) {
+      const m = new THREE.Mesh(disco, matDisco);
+      m.position.set(x, 0, z);
+      const borde = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.05, 0.08, 20).translate(0, 0.04, 0), materialContornoCaja);
+      m.add(borde);
+      const flecha = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.5, 3).rotateX(dz > 0 ? Math.PI / 2 : -Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xFFF7EE }));
+      flecha.position.y = 0.2;
+      m.add(flecha);
+      this.grupo.add(m);
+      const anillo = new THREE.Mesh(anilloGeo, new THREE.MeshBasicMaterial({ color: 0x3EE0FF, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
+      anillo.position.set(x, 0.15, z);
+      this.grupo.add(anillo);
+      this.anillos.push(anillo);
+      this.listaSaltadores.push({ x, z, dir: new THREE.Vector3(dx, 0, dz), fuerza });
+    }
+  }
+
+  saltador(p) {
+    if (p.y > 0.2) return null;
+    for (const s of this.listaSaltadores) if ((p.x - s.x) ** 2 + (p.z - s.z) ** 2 < 0.8) return s;
+    return null;
+  }
+
+  actualizar(t, dt) {
+    for (let i = 0; i < this.anillos.length; i++) {
+      const a = this.anillos[i], k = (t * 0.9 + i * 0.25) % 1;
+      a.position.y = 0.15 + k * 2.2;
+      a.scale.setScalar(1 + k * 0.4);
+      a.material.opacity = 0.8 * (1 - k);
+    }
+    for (let i = this.dinamicas.length - 1; i >= 0; i--) {
+      const d = this.dinamicas[i];
+      d.vida -= dt;
+      const k = Math.min(1, (d.total - d.vida) * 6);
+      d.malla.scale.y = Math.max(0.01, k * Math.min(1, d.vida * 3));
+      if (d.vida <= 0) { this.grupo.remove(d.malla); d.malla.geometry.dispose(); this.dinamicas.splice(i, 1); }
+    }
+  }
+
+  // Muro de hielo alineado con los ejes (las colisiones son AABB).
+  agregarMuro(x, z, alongX, duracion = 6) {
+    const w = alongX ? 4.4 : 0.6, d = alongX ? 0.6 : 4.4, h = 2.6;
+    const min = new THREE.Vector3(x - w / 2, 0, z - d / 2), max = new THREE.Vector3(x + w / 2, h, z + d / 2);
+    const geo = new THREE.BoxGeometry(w, h, d).translate(0, h / 2, 0);
+    const malla = new THREE.Mesh(geo, matHielo);
+    malla.add(new THREE.Mesh(new THREE.BoxGeometry(w + 0.08, h + 0.08, d + 0.08).translate(0, h / 2, 0), materialContornoCaja));
+    malla.position.set(x, 0, z);
+    malla.scale.y = 0.01;
+    this.grupo.add(malla);
+    this.dinamicas.push({ min, max, malla, vida: duracion, total: duracion });
+  }
+
+  limpiarDinamicas() {
+    for (const d of this.dinamicas) { this.grupo.remove(d.malla); d.malla.geometry.dispose(); }
+    this.dinamicas.length = 0;
   }
 
   _construir() {
@@ -216,13 +286,16 @@ export class Mapa {
         for (const i of l) { if (this._vistos[i] !== this._marca) { this._vistos[i] = this._marca; salida.push(this.cajas[i]); } }
       }
     }
+    for (const d of this.dinamicas) if (d.max.x >= minX && d.min.x <= maxX && d.max.z >= minZ && d.min.z <= maxZ) salida.push(d);
     return salida;
   }
 
   // Rayo contra todas las cajas (método de las franjas). Devuelve la distancia o Infinity.
   rayo(o, d, max = 200, normal = null) {
     let mejor = max, eje = -1, signo = 0;
-    for (const c of this.cajas) {
+    const n0 = this.cajas.length, total = n0 + this.dinamicas.length;
+    for (let ci = 0; ci < total; ci++) {
+      const c = ci < n0 ? this.cajas[ci] : this.dinamicas[ci - n0];
       let tmin = 0, tmax = mejor, e = -1, s = 0;
       let ok = true;
       for (let a = 0; a < 3; a++) {
@@ -338,10 +411,24 @@ export class Mapa {
     return camino.reverse();
   }
 
-  // Puntos de aparición: cada uno en un extremo de la azotea.
-  aparicion(equipo) {
-    return equipo === 0 ? new THREE.Vector3(0, 0, LIMITES.z - 2.5) : new THREE.Vector3(0, 0, -LIMITES.z + 2.5);
+  // Aparición: el punto más alejado de los rivales vivos (con algo de azar para no ser previsible).
+  aparicionLibre(rivales, out = new THREE.Vector3()) {
+    let mejor = APARICIONES[0], mv = -Infinity;
+    for (const a of APARICIONES) {
+      let md = 60;
+      for (const r of rivales) if (r.vivo) md = Math.min(md, Math.hypot(r.pos.x - a[0], r.pos.z - a[1]));
+      const v = md + Math.random() * 6;
+      if (v > mv) { mv = v; mejor = a; }
+    }
+    out.set(mejor[0], 0, mejor[1]);
+    // Mirando hacia el centro.
+    return { pos: out, yaw: Math.atan2(out.x, out.z) };
   }
 }
 
 const _v = new THREE.Vector3();
+const matHielo = new THREE.MeshToonMaterial({ color: 0xBFEFFF, emissive: 0x3A8FC0, emissiveIntensity: 0.25, transparent: true, opacity: 0.85 });
+const APARICIONES = [
+  [0, 23.5], [0, -23.5], [-13, 22.5], [13, -22.5], [13, 21], [-13, -21],
+  [-14.2, -1], [14.2, 1], [10, 10], [-10, -10], [-2.5, 13], [2.5, -13],
+];

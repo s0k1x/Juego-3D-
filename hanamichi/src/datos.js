@@ -1,9 +1,9 @@
 // Datos guardados en el navegador: ajustes y estadísticas. Todo con try/catch
 // (modo privado o iframe sin almacenamiento) y con copia en memoria.
-const CLAVE = 'hanamichi:datos';
+const CLAVE = 'hanamichi:datos2';
 const BASE = {
-  ajustes: { sensibilidad: 1, camara: 'tercera', calidad: 'auto', dificultad: 'normal', primaria: 'rifle' },
-  stats: { partidas: 0, victorias: 0, racha: 0, mejorRacha: 0 },
+  ajustes: { sensibilidad: 1, fov: 80, calidad: 'auto', dificultad: 'normal', heroe: 'sakura', nombre: '', bots: 5, volumen: null, correr: true },
+  stats: { partidas: 0, victorias: 0, bajas: 0, muertes: 0, mejorPartida: 0 },
 };
 
 let memoria = cargar();
@@ -24,10 +24,12 @@ export const datos = {
   get ajustes() { return memoria.ajustes; },
   get stats() { return memoria.stats; },
   ajustar(cambios) { Object.assign(memoria.ajustes, cambios); guardar(); },
-  registrarPartida({ gano }) {
+  registrarPartida({ gano, bajas, muertes }) {
     const s = memoria.stats;
     s.partidas++;
-    if (gano) { s.victorias++; s.racha++; s.mejorRacha = Math.max(s.mejorRacha, s.racha); } else s.racha = 0;
+    if (gano) s.victorias++;
+    s.bajas += bajas; s.muertes += muertes;
+    s.mejorPartida = Math.max(s.mejorPartida, bajas);
     guardar();
     return { ...s };
   },

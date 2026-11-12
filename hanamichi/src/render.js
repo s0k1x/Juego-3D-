@@ -88,6 +88,15 @@ export class Render {
     this.escena.fog = new THREE.Fog(COLORES.horizonte, 45, 150);
     this.camara = new THREE.PerspectiveCamera(72, 1, 0.08, 220);
     this.escena.add(this.camara);
+    // Escena de la vista en primera persona: se dibuja encima con su propia cámara (FOV fijo).
+    this.escenaVista = new THREE.Scene();
+    this.camaraVista = new THREE.PerspectiveCamera(60, 1, 0.01, 10);
+    this.escenaVista.add(new THREE.HemisphereLight(0xE8DDFF, 0x5A4D8A, 1.7));
+    const luzVista = new THREE.DirectionalLight(0xFFE2CC, 2.1);
+    luzVista.position.set(-1, 2, 1.5);
+    this.escenaVista.add(luzVista);
+    this.renderer.autoClear = false;
+    this.renderer.info.autoReset = false;
 
     this.calidad = 'auto';
     this.maxRatio = Math.min(window.devicePixelRatio || 1, esMovil ? 1.5 : 2);
@@ -209,6 +218,8 @@ export class Render {
     this.renderer.setSize(w, h, false);
     this.camara.aspect = w / h;
     this.camara.updateProjectionMatrix();
+    this.camaraVista.aspect = w / h;
+    this.camaraVista.updateProjectionMatrix();
     this.matPetalos.uniforms.escala.value = h * this.ratio / 700;
   }
 
@@ -238,6 +249,11 @@ export class Render {
   dibujar(t) {
     this.matPetalos.uniforms.tiempo.value = t;
     this.matPetalos.uniforms.centro.value.copy(this.camara.position);
-    this.renderer.render(this.escena, this.camara);
+    const r = this.renderer;
+    r.info.reset();
+    r.clear();
+    r.render(this.escena, this.camara);
+    r.clearDepth();
+    r.render(this.escenaVista, this.camaraVista);
   }
 }
