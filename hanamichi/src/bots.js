@@ -11,7 +11,7 @@ export const DIFICULTAD = {
   dificil: { reaccion: 0.2, error: 0.033, giro: 8.5, cabeza: 0.35, tolerancia: 0.035, rafaga: [6, 14], salta: 0.5, granada: 0.6, poderes: 1 },
 };
 
-const DIST_IDEAL = { rifle: 14, escopeta: 5, franco: 26, subfusil: 8, pistola: 11, katana: 1.5 };
+const DIST_IDEAL = { vector: 14, trueno: 5, aguja: 26, avispa: 8, cometa: 16, chispa: 11, sentencia: 14, eco: 7, filo: 1.5, yunque: 1.6, colmillo: 1.3 };
 const _ojoA = new THREE.Vector3(), _ojoB = new THREE.Vector3(), _obj = new THREE.Vector3();
 
 export class Bot {
@@ -37,18 +37,18 @@ export class Bot {
     this.tSinVer = 0;
     this.objetivo = null;
     this.tObjetivo = 0;
-    this.intent = { x: 0, y: 0, saltar: false, deslizar: false, agachar: false, esprintar: false, disparar: false, poder: null };
+    this.intent = { x: 0, y: 0, saltar: false, deslizar: false, agachar: false, esprintar: false, disparar: false, util: false, apuntar: false };
   }
 
   _elegirObjetivo(juego) {
     const c = this.c;
     let mejor = null, mv = Infinity;
     for (const o of juego.combatientes) {
-      if (o === c || !o.vivo || o.protegido > 1.5) continue;
+      if (o === c || !o.vivo || o.equipo === c.equipo) continue;
       let v = o.pos.distanceTo(c.pos);
       _ojoA.set(c.pos.x, c.pos.y + c.ojos, c.pos.z);
       _ojoB.set(o.pos.x, o.pos.y + 1.4, o.pos.z);
-      if (v < 50 && juego.mapa.visible(_ojoA, _ojoB)) v *= 0.4;
+      if (v < 50 && juego.ve(_ojoA, _ojoB)) v *= 0.4;
       if (o === this.objetivo) v *= 0.7;       // no cambia de idea a cada momento
       if (c.ultimoGolpe > 0 && o.pos.distanceTo(c.pos) < 40) v *= 0.85;
       if (v < mv) { mv = v; mejor = o; }
@@ -59,8 +59,8 @@ export class Bot {
 
   pensar(dt, juego) {
     const c = this.c, mapa = juego.mapa, I = this.intent;
-    I.saltar = I.deslizar = I.disparar = false; I.poder = null;
-    if (!c.vivo || juego.fase !== 'combate') { I.x = I.y = 0; return I; }
+    I.saltar = I.deslizar = I.disparar = false; I.util = false; I.apuntar = false;
+    if (!c.vivo || juego.fase !== 'combate') { I.x = I.y = 0; I.agachar = false; return I; }
     this.tObjetivo -= dt;
     if (this.tObjetivo <= 0 || !this.objetivo?.vivo) { this._elegirObjetivo(juego); this.tObjetivo = 0.5; }
     const j = this.objetivo;
@@ -72,7 +72,7 @@ export class Bot {
     const dist = _ojoA.distanceTo(_ojoB);
     const aJug = Math.atan2(-(j.pos.x - c.pos.x), -(j.pos.z - c.pos.z));
     const difYaw = Math.abs(angulo(aJug - c.yaw));
-    const ve = j.vivo && (difYaw < 1.3 || c.ultimoGolpe > 0 || dist < 5) && mapa.visible(_ojoA, _ojoB);
+    const ve = j.vivo && (difYaw < 1.3 || c.ultimoGolpe > 0 || dist < 5) && juego.ve(_ojoA, _ojoB);
     if (ve) {
       this.visto += dt;
       this.tSinVer = 0;
@@ -84,25 +84,16 @@ export class Bot {
 
     // ---------- Arma ----------
     const ars = c.arsenal;
-    const prim = ars.ranuras[0];
-    if (ve && dist < 2.6 && ars.indice !== 2 && Math.random() < dt * 3) ars.cambiar(2);
-    else if (ars.indice === 2 && dist > 4.5) ars.cambiar(ars.municion[prim] > 0 ? 0 : 1);
+    const prim = ars.ranuras[0], sec = ars.ranuras[1];
+    const cuerpo = ARMAS[ars.ranuras[2]];
+    if (ve && dist < cuerpo.alcance + 0.4 && ars.indice !== 2 && Math.random() < dt * 3) ars.cambiar(2);
+    else if (ars.indice === 2 && dist > cuerpo.alcance + 2.5) ars.cambiar(ars.municion[prim] > 0 ? 0 : 1);
     else if (ars.indice === 0 && ars.municion[prim] === 0 && ars.recargando <= 0) {
-      if (ve && dist < 12) ars.cambiar(1); else ars.recargar();
-    } else if (ars.indice === 1 && (!ve || ars.municion.pistola === 0) && ars.municion[prim] < ARMAS[prim].cargador) {
+      if (ve && dist < 14 && ars.municion[sec] > 0) ars.cambiar(1); else ars.recargar();
+    } else if (ars.indice === 1 && (!ve || ars.municion[sec] === 0) && ars.municion[prim] < ARMAS[prim].cargador) {
       ars.cambiar(0); ars.recargar();
-    } else if (ars.indice === 1 && !ve) ars.cambiar(0);
-    else if (ars.indice === 3) ars.cambiar(0);
-    if (!ve && ars.indice === 0 && ars.municion[prim] < ARMAS[prim].cargador * 0.5) ars.recargar();
-
-    // Granada a donde se escondió el rival.
-    if (!ve && this.ultimaPos && this.tSinVer > 1.2 && this.tSinVer < 4 && ars.granadas > 0) {
-      const dg = c.pos.distanceTo(this.ultimaPos);
-      if (dg > 7 && dg < 22 && Math.random() < dt * this.p.granada) {
-        this._mirarA(this.ultimaPos, 1.2, dt * 100, true);
-        juego.lanzarGranada(c, 0.35 + dg * 0.012);
-      }
-    }
+    } else if (ars.indice === 1 && !ve && ars.municion[prim] > 0) ars.cambiar(0);
+    if (!ve && ars.indice < 2 && ars.municion[ars.tipo] < ars.arma.cargador * 0.5) ars.recargar();
 
     // ---------- Decidir estado ----------
     const herido = c.vida < 40;
@@ -126,13 +117,12 @@ export class Bot {
       mz = dz * acercar + dx * this.lado * 0.85;
       if (c.suelo && Math.random() < dt * this.p.salta) I.saltar = true;
       else if (!c.suelo && c.vel.y < 0 && Math.random() < dt * this.p.salta * 2) I.saltar = true;
-      I.agachar = ars.tipo === 'franco' && dist > 18;
-      I.esprintar = ars.tipo === 'katana' || ars.tipo === 'escopeta' || ars.tipo === 'subfusil';
+      I.agachar = ars.tipo === 'aguja' && dist > 18;
+      I.apuntar = !!ars.arma.mira || dist > 16;
+      I.esprintar = !!ars.arma.cuerpo || ars.tipo === 'trueno' || ars.tipo === 'avispa' || ars.tipo === 'eco';
       if (I.esprintar && dist < 8 && c.suelo && Math.random() < dt * 0.8) I.deslizar = true;
     } else {
-      // Herido y sin rival a la vista: va a por un botiquín si hay uno cerca.
-      const botiquin = c.vida < 55 && this.estado === 'buscar' ? juego.botiquinCercano?.(c.pos) : null;
-      const destino = botiquin || (this.estado === 'cubrirse' ? this.cobertura : (this.ultimaPos || j.pos));
+      const destino = this.estado === 'cubrirse' ? this.cobertura : (this.ultimaPos || j.pos);
       this.tRuta -= dt;
       if (this.tRuta <= 0) {
         this.ruta = mapa.ruta(c.pos.x, c.pos.z, destino.x, destino.z);
@@ -169,38 +159,32 @@ export class Bot {
       this.error.set((Math.random() - 0.5) * this.p.error * 6, (Math.random() - 0.5) * this.p.error * 4);
       this.rafaga = 0;
     }
-    this._poderes(dt, ve, dist, difYaw, I);
+    this._utilidad(dt, ve, dist, difYaw, I);
     c.disparoHecho = false;
     return I;
   }
 
-  _poderes(dt, ve, dist, difYaw, I) {
-    const c = this.c, H = c.H;
-    if (Math.random() > dt * 2.5 * this.p.poderes) return;
-    const apunta = difYaw < 0.12 && this.visto > this.p.reaccion;
-    if (c.carga >= 100 && ve) {
-      const x = H.x.id;
-      if ((x === 'tormenta' && dist < 25) || x === 'juicio' || ((x === 'ventisca' || x === 'meteoro') && dist < 30 && apunta)) { I.poder = 'x'; return; }
-    }
-    const q = H.q.id, e = H.e.id;
-    if (c.cdQ <= 0) {
-      if (q === 'rayo' && ve && apunta && dist < 45) { I.poder = 'q'; return; }
-      if (q === 'bola' && ve && apunta && dist > 5 && dist < 30) { I.poder = 'q'; return; }
-      if (q === 'destello' && ve && (dist > 14 || (c.vida < 45 && Math.random() < 0.5))) { I.poder = 'q'; return; }
-      if (q === 'muro' && ve && (c.vida < 60 || c.arsenal.recargando > 0)) { I.poder = 'q'; return; }
-    }
-    if (c.cdE <= 0) {
-      if (e === 'petalos' && c.vida < 55) { I.poder = 'e'; return; }
-      if (e === 'escudo' && c.ultimoGolpe > 0) { I.poder = 'e'; return; }
-      if (e === 'trueno' && ve && dist > 3 && dist < 13 && c.suelo) { I.poder = 'e'; return; }
-      if (e === 'impulso' && ((ve && c.vida < 40) || (!ve && Math.random() < 0.15)) && c.suelo) { I.poder = 'e'; return; }
+  _utilidad(dt, ve, dist, difYaw, I) {
+    const c = this.c, ars = c.arsenal;
+    if (ars.cdUtil > 0 || Math.random() > dt * 2 * this.p.poderes) return;
+    switch (ars.utilidad) {
+      case 'petardo':
+        // A donde se escondió el rival, o directa si está lejos.
+        if (!ve && this.ultimaPos && this.tSinVer > 1 && this.tSinVer < 4) {
+          const dg = c.pos.distanceTo(this.ultimaPos);
+          if (dg > 7 && dg < 22) { this._mirarA(this.ultimaPos, 1.2 + dg * 0.06, 1, false); I.util = true; }
+        } else if (ve && dist > 9 && dist < 20 && difYaw < 0.15 && Math.random() < 0.3) { c.pitch += 0.12; I.util = true; }
+        break;
+      case 'humo': if (ve && c.vida < 50 && dist > 8) I.util = true; break;
+      case 'destello': if (ve && ((dist > 12 && ars.arma.cuerpo) || dist > 22 || (c.vida < 40 && Math.random() < 0.4))) I.util = true; break;
+      case 'muro': if (ve && dist > 6 && (c.vida < 60 || ars.recargando > 0)) I.util = true; break;
+      case 'botiquin': if (c.vida < 50 && (!ve || c.vida < 25)) I.util = true; break;
     }
   }
 
   _decidirDisparo(dt, dist, difYaw, I) {
     const c = this.c, ars = c.arsenal, a = ars.arma;
     if (a.cuerpo) { if (dist < a.alcance) I.disparar = true; return; }
-    if (a.lanzable) { ars.cambiar(0); return; }
     if (a.alcance && dist > a.alcance * 0.9) return;
     if (this.pausa > 0) { this.pausa -= dt; return; }
     if (difYaw > this.p.tolerancia * 6) return;

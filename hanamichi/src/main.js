@@ -6,6 +6,7 @@ import { Interfaz } from './ui.js';
 import { Juego } from './juego.js';
 import { datos } from './datos.js';
 import { red, codigoSala } from './red.js';
+import { ARMAS, POR_RANURA, equipoValido } from './armas.js';
 
 const canvas = document.getElementById('lienzo');
 const carga = document.getElementById('carga');
@@ -17,7 +18,7 @@ function sinWebGL() {
 let render;
 try { render = new Render(canvas); } catch (e) { console.warn(e); sinWebGL(); throw e; }
 
-const ui = new Interfaz();
+const ui = new Interfaz({ ARMAS, POR_RANURA });
 const input = new Input(canvas, document.getElementById('tactil'));
 const juego = new Juego({ render, input, audio, ui });
 input.onGesto = () => audio.unlock();
@@ -28,24 +29,24 @@ ui.marcarTactil(input.tactil);
 const aj = datos.ajustes;
 const nombrePorDefecto = 'Jugador ' + (10 + ((Math.random() * 90) | 0));
 if (aj.volumen == null) aj.volumen = audio.getVolume();
+aj.equipo = equipoValido(aj.equipo);
 input.sensibilidad = aj.sensibilidad;
-input.correrSiempre = aj.correr;
+input.correrSiempre = true;
 juego.camara.fovBase = aj.fov;
 render.setCalidad(aj.calidad);
-Object.assign(juego.config, { heroe: aj.heroe, dificultad: aj.dificultad, nombre: aj.nombre || nombrePorDefecto, bots: aj.bots });
-juego.cambiarHeroe(aj.heroe);
+Object.assign(juego.config, { nombre: aj.nombre || nombrePorDefecto, modo: aj.modo, mapa: aj.mapa, dificultad: aj.dificultad });
+juego.cambiarEquipo(aj.equipo);
 ui.construirMenu(aj, (clave, v) => {
   audio.ui();
   datos.ajustar({ [clave]: v });
   if (clave === 'sensibilidad') input.sensibilidad = v;
   if (clave === 'volumen') audio.setVolume(v);
+  if (clave === 'musica') audio.setMusicVolume?.(v);
   if (clave === 'calidad') render.setCalidad(v);
   if (clave === 'fov') juego.camara.fovBase = v;
-  if (clave === 'correr') input.correrSiempre = v;
-  if (clave === 'heroe') juego.cambiarHeroe(v);
-  if (clave === 'dificultad') juego.config.dificultad = v;
-  if (clave === 'musica') audio.setMusicVolume?.(v);
-  if (clave === 'fps') { verFps = v; if (!v) ui.fps?.(null); }
+  if (clave === 'fps') { verFps = v; if (!v) ui.fps(null); }
+  if (clave === 'equipo') juego.cambiarEquipo(v);
+  if (clave === 'modo' || clave === 'mapa' || clave === 'dificultad') juego.config[clave] = v;
   if (clave === 'nombre') juego.config.nombre = v || nombrePorDefecto;
 });
 ui.stats(datos.stats);
@@ -93,6 +94,7 @@ al('btnPausa', () => juego.pausar());
 al('btnAjustes', () => ui.ajustes(true, 'menu'));
 al('btnAjustesPausa', () => ui.ajustes(true, 'pausa'));
 al('btnCerrarAjustes', () => ui.ajustes(false));
+al('btnEquipoPausa', () => ui.equipo(true));
 al('btnInvitar', async () => {
   const url = enlaceSala(red.sala);
   try { await navigator.clipboard.writeText(url); ui.toast('Enlace copiado'); } catch { ui.toast(url); }

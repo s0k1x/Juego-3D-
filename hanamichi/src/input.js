@@ -31,8 +31,8 @@ export class Input {
   _teclado() {
     const mapa = {
       Space: 'saltar', KeyC: 'deslizar', ControlLeft: 'deslizar', KeyR: 'recargar',
-      Digit1: 'r1', Digit2: 'r2', Digit3: 'r3', Digit4: 'r4', KeyG: 'granada',
-      KeyQ: 'q', KeyE: 'e', KeyX: 'x', KeyF: 'x', KeyP: 'pausa',
+      Digit1: 'r1', Digit2: 'r2', Digit3: 'r3', Digit4: 'util', KeyQ: 'util', KeyE: 'util', KeyG: 'util',
+      KeyF: 'inspeccionar', KeyP: 'pausa',
     };
     addEventListener('keydown', (e) => {
       this.onGesto?.();

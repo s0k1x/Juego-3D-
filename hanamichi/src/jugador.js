@@ -4,7 +4,6 @@
 import * as THREE from 'three';
 import { Arsenal } from './armas.js';
 import { Personaje } from './personaje.js';
-import { HEROES } from './heroes.js';
 
 const RADIO = 0.34;
 const ALTO = { pie: 1.75, agachado: 1.15, desliz: 0.9 };
@@ -14,9 +13,11 @@ export const VIDA_MAX = 100;
 const _cajas = [];
 
 export class Combatiente {
-  constructor(escena, { id, nombre, heroe = 'sakura', local = true }) {
+  constructor(escena, { id, nombre, equipo = 0, variante = 0, armas, local = true }) {
     this.id = id;
     this.nombre = nombre;
+    this.equipo = equipo;          // 0 o 1
+    this.variante = variante;
     this.escena = escena;
     this.local = local;
     this.pos = new THREE.Vector3();
@@ -24,25 +25,17 @@ export class Combatiente {
     this.yaw = 0; this.pitch = 0;
     this.impactos = { cabeza: new THREE.Vector3(), pecho: new THREE.Vector3(), piernas: new THREE.Vector3() };
     this.stats = { disparos: 0, aciertos: 0, cabezas: 0, dano: 0 };
-    this.bajas = 0; this.muertes = 0; this.racha = 0;
+    this.bajas = 0; this.muertes = 0;
     this.snaps = []; // instantáneas recibidas por red
-    this.setHeroe(heroe);
+    this.modelo = new Personaje(escena, { variante });
+    this.arsenal = new Arsenal(armas);
     this.reiniciar(new THREE.Vector3(), 0);
-  }
-
-  setHeroe(heroe) {
-    if (this.heroe === heroe && this.modelo) return;
-    this.heroe = heroe;
-    this.H = HEROES[heroe] || HEROES.sakura;
-    if (this.modelo) this.modelo.destruir();
-    this.modelo = new Personaje(this.escena, this.H.estilo);
-    if (!this.arsenal) this.arsenal = new Arsenal(this.H.arma);
-    else this.arsenal.reiniciar(this.H.arma);
   }
 
   destruir() { this.modelo.destruir(); }
 
-  reiniciar(pos, yaw) {
+  // Nueva ronda (o entrada en la partida).
+  reiniciar(pos, yaw, armas) {
     this.pos.copy(pos);
     this.vel.set(0, 0, 0);
     this.yaw = yaw; this.pitch = 0;
@@ -53,32 +46,29 @@ export class Combatiente {
     this.saltosAire = 0;
     this.deslizando = 0;
     this.agachado = false;
-    this.golpeKatana = 0; this.katanaLado = 1;
+    this.golpe = 0; this.golpeN = 0;
     this.retroceso = 0;
     this.ultimoGolpe = 0;
     this.sinDano = 0;
     this.dirGolpe = 0;
-    this.protegido = 2;
-    this.cdQ = 0; this.cdE = 0;
-    this.carga = this.carga ?? 0;
-    this.ult = 0;               // segundos de definitiva activa (Sakura)
+    this.protegido = 0;
     this.curando = 0;
     this.lento = 0;
-    this.lanzando = 0;
+    this.usando = 0;
     this.flinch = 0;
-    this.trueno = false;
+    this.apuntando = false;
+    this.celebra = false;
     this.aterrizaje = 0;
     this.asesino = null;
     this.tMuerte = 0;
-    this.arsenal.reiniciar(this.H.arma);
-    this.modelo.muerte = 0;
-    this.modelo.cadera.rotation.set(0, 0, 0);
+    this.arsenal.reiniciar(armas);
+    this.modelo.reiniciar();
     this.snaps.length = 0;
   }
 
   get alto() { return this.deslizando > 0 ? ALTO.desliz : this.agachado ? ALTO.agachado : ALTO.pie; }
   get ojos() { return this.alto - 0.17; }
-  get velMult() { return this.H.velocidad * (this.ult > 0 && this.heroe === 'sakura' ? 1.3 : 1) * (this.lento > 0 ? 0.55 : 1); }
+  get velMult() { return (this.arsenal.arma.movilidad || 1) * (this.apuntando ? 0.6 : 1) * (this.lento > 0 ? 0.55 : 1); }
 
   // intencion: { x, y (en ejes de la mirada), saltar, deslizar, agachar, esprintar }
   fisica(dt, intent, mapa, audio, esJugador) {
@@ -139,7 +129,9 @@ export class Combatiente {
     }
     this.vel.y -= GRAVEDAD * dt;
 
+    this._empuja = this.vivo && quiere > 0.3;
     const estabaEnSuelo = this.suelo;
+    this._aire = !estabaEnSuelo;
     const vy = this.vel.y;
     this.suelo = false;
     this._mover(0, this.vel.x * dt, mapa);
@@ -147,7 +139,7 @@ export class Combatiente {
     this._mover(1, this.vel.y * dt, mapa);
     this.aterrizaje = 0;
     if (this.suelo) {
-      this.saltosAire = 0;
+      this.saltosAire = 0; this.trepado = false;
       if (!estabaEnSuelo) { this.aterrizaje = vy; if (esJugador && vy < -6) audio.aterrizar(); }
       // Saltadores: te lanzan alto y hacia delante.
       const sal = mapa.saltador(this.pos);
@@ -160,30 +152,25 @@ export class Combatiente {
     if (esJugador && this.suelo && estabaEnSuelo && rapidez > 3 && this.deslizando <= 0) audio.paso();
     if (this.pos.y < -10) { this.pos.set(0, 0.5, 0); this.vel.set(0, 0, 0); }
 
-    this.golpeKatana = Math.max(0, this.golpeKatana - dt * 4);
+    this.trepando = Math.max(0, (this.trepando || 0) - dt);
+    this.golpe = Math.max(0, this.golpe - dt * 3.5);
     this.retroceso = Math.max(0, this.retroceso - dt * 6);
   }
 
-  // Temporizadores de poderes y estados (lo hace el dueño de la entidad).
+  // Temporizadores de estados (lo hace el dueño de la entidad).
   tiempos(dt) {
-    this.cdQ = Math.max(0, this.cdQ - dt);
-    this.cdE = Math.max(0, this.cdE - dt);
     this.protegido = Math.max(0, this.protegido - dt);
-    this.ult = Math.max(0, this.ult - dt);
     this.lento = Math.max(0, this.lento - dt);
-    this.lanzando = Math.max(0, this.lanzando - dt * 3);
+    this.usando = Math.max(0, this.usando - dt * 2.5);
     this.flinch = Math.max(0, this.flinch - dt * 5);
     this.ultimoGolpe = Math.max(0, this.ultimoGolpe - dt);
     if (this.tEscudo > 0) { this.tEscudo -= dt; if (this.tEscudo <= 0) this.escudo = 0; }
     if (!this.vivo) { this.tMuerte += dt; return; }
     this.sinDano += dt;
-    this.carga = Math.min(100, this.carga + dt * 1.2);
     if (this.curando > 0) {
-      const c = Math.min(this.curando, dt * 30);
+      const c = Math.min(this.curando, dt * 25);
       this.curando -= c; this.vida = Math.min(VIDA_MAX, this.vida + c);
     }
-    // Regeneración rápida tras 4 s sin recibir daño.
-    if (this.sinDano > 4 && this.vida < VIDA_MAX) this.vida = Math.min(VIDA_MAX, this.vida + dt * 25);
   }
 
   _mover(eje, d, mapa) {
@@ -208,6 +195,11 @@ export class Combatiente {
       }
       p[k] = d > 0 ? b.min[k] - r - 0.001 : b.max[k] + r + 0.001;
       this.vel[k] = 0;
+      // Trepar bordes: en el aire y empujando contra algo bajo, un impulso te sube encima (una vez por salto).
+      if (this._aire && this._empuja && !this.trepado && escalon > 0.48 && escalon <= 1.45 && this.vel.y > -9 && this._libreArriba(b.max.y)) {
+        this.vel.y = Math.max(this.vel.y, Math.sqrt(2 * GRAVEDAD * (escalon + 0.12)));
+        this.trepado = true; this.trepando = 0.35;
+      }
     }
   }
 
@@ -235,7 +227,7 @@ export class Combatiente {
     this.sinDano = 0;
     this.flinch = 1;
     if (desde) this.dirGolpe = Math.atan2(desde.x - this.pos.x, desde.z - this.pos.z);
-    if (this.vida <= 0) { this.vivo = false; this.tMuerte = 0; this.curando = 0; this.escudo = 0; this.ult = 0; return true; }
+    if (this.vida <= 0) { this.vivo = false; this.tMuerte = 0; this.curando = 0; this.escudo = 0; return true; }
     return false;
   }
 
@@ -243,9 +235,10 @@ export class Combatiente {
     const e = this._e || (this._e = {});
     e.pos = this.pos; e.yaw = this.yaw; e.pitch = this.pitch; e.vel = this.vel; e.suelo = this.suelo;
     e.deslizando = this.deslizando > 0; e.agachado = this.agachado; e.vivo = this.vivo;
-    e.golpeKatana = this.golpeKatana; e.katanaLado = this.katanaLado;
-    e.recarga = this.arsenal.progresoRecarga; e.lanzando = this.lanzando; e.flinch = this.flinch;
-    e.protegido = this.protegido > 0; e.escudo = this.escudo; e.ult = this.ult > 0;
+    e.golpe = this.golpe; e.golpeN = this.golpeN; e.dirGolpe = this.dirGolpe;
+    e.recarga = this.arsenal.progresoRecarga; e.usando = this.usando; e.flinch = this.flinch;
+    e.protegido = this.protegido > 0; e.escudo = this.escudo; e.apuntando = this.apuntando;
+    e.celebra = this.celebra; e.arma = this.arsenal.tipo;
     return e;
   }
 
@@ -308,6 +301,7 @@ export class Camara {
     this.patada = 0; // golpe de FOV (destello, saltador)
   }
 
+  // c: a quién se mira (el jugador, o un compañero si está eliminado).
   actualizar(dt, c, apuntando, zoom, asesino) {
     const cam = this.cam;
     const vel = Math.hypot(c.vel.x, c.vel.z);
