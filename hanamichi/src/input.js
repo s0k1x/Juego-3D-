@@ -13,7 +13,9 @@ export class Input {
     this.apuntando = false;
     this.esprintar = false;
     this.agachar = false;
-    this.pulsados = new Set();          // 'saltar', 'deslizar', 'recargar', 'r1'..'r4', 'siguiente', 'camara', 'pausa', 'granada'
+    this.pulsados = new Set();          // 'saltar', 'deslizar', 'recargar', 'r1'..'r4', 'siguiente', 'pausa', 'granada', 'q', 'e', 'x'
+    this.tabla = false;
+    this.correrSiempre = true;          // correr por defecto al ir hacia delante (Mayús no hace falta)
     this.bloqueado = false;
     this.activo = false;
     this.onGesto = null;
@@ -29,8 +31,8 @@ export class Input {
   _teclado() {
     const mapa = {
       Space: 'saltar', KeyC: 'deslizar', ControlLeft: 'deslizar', KeyR: 'recargar',
-      Digit1: 'r1', Digit2: 'r2', Digit3: 'r3', Digit4: 'r4', KeyG: 'granada', KeyQ: 'anterior',
-      KeyV: 'camara', KeyP: 'pausa',
+      Digit1: 'r1', Digit2: 'r2', Digit3: 'r3', Digit4: 'r4', KeyG: 'granada',
+      KeyQ: 'q', KeyE: 'e', KeyX: 'x', KeyF: 'x', KeyP: 'pausa',
     };
     addEventListener('keydown', (e) => {
       this.onGesto?.();
@@ -38,7 +40,7 @@ export class Input {
       if (e.code === 'Escape') { this.pulsados.add('pausa'); return; }
       if (mapa[e.code] && !e.repeat) this.pulsados.add(mapa[e.code]);
       this.teclas.add(e.code);
-      if (/^(Space|Arrow)/.test(e.code) || e.code === 'ControlLeft') e.preventDefault();
+      if (/^(Space|Arrow|Tab)/.test(e.code) || e.code === 'ControlLeft') e.preventDefault();
     });
     addEventListener('keyup', (e) => this.teclas.delete(e.code));
     addEventListener('blur', () => this.limpiar());
@@ -73,10 +75,11 @@ export class Input {
 
   pedirBloqueo() {
     if (this.tactil) return;
+    const normal = () => { try { this.canvas.requestPointerLock()?.catch?.(() => {}); } catch { /* sin bloqueo */ } };
     try {
       const p = this.canvas.requestPointerLock({ unadjustedMovement: true });
-      p?.catch?.(() => { try { this.canvas.requestPointerLock(); } catch { /* sin bloqueo */ } });
-    } catch { /* sin bloqueo */ }
+      p?.catch?.((e) => { if (e?.name === 'NotSupportedError') normal(); });
+    } catch { normal(); }
   }
 
   soltarBloqueo() { if (document.pointerLockElement) document.exitPointerLock(); }
@@ -129,6 +132,8 @@ export class Input {
         } else if (accion === 'apuntar') {
           this.apuntando = !this.apuntando;
           b.classList.toggle('fijo', this.apuntando);
+        } else if (accion === 'tabla') {
+          this.tablaTactil = !this.tablaTactil;
         } else if (accion === 'agachar') {
           this.pulsados.add('deslizar');
           this.agachar = true;
@@ -153,7 +158,10 @@ export class Input {
     if (k.has('KeyD') || k.has('ArrowRight')) x += 1;
     if (k.has('KeyW') || k.has('ArrowUp')) y += 1;
     if (k.has('KeyS') || k.has('ArrowDown')) y -= 1;
-    this.esprintar = k.has('ShiftLeft') || k.has('ShiftRight');
+    // Con «correr siempre», Mayús sirve para andar despacio.
+    const mayus = k.has('ShiftLeft') || k.has('ShiftRight');
+    this.esprintar = this.correrSiempre ? y > 0 && !mayus : mayus;
+    this.tabla = k.has('Tab') || this.tablaTactil;
     if (!this.tactil) this.agachar = k.has('KeyC') || k.has('ControlLeft');
 
     if (this.stick.id !== null) {
@@ -165,7 +173,7 @@ export class Input {
         dx = this.stick.x - this.stick.ox; dy = this.stick.y - this.stick.oy;
       }
       x = dx / R; y = -dy / R;
-      this.esprintar = Math.hypot(x, y) > 0.92;
+      this.esprintar = Math.hypot(x, y) > (this.correrSiempre ? 0.7 : 0.92);
     }
     const l = Math.hypot(x, y);
     if (l > 1) { x /= l; y /= l; }
@@ -186,6 +194,7 @@ export class Input {
     this.teclas.clear();
     this.pulsados.clear();
     this.disparando = this.apuntando = false;
+    this.tablaTactil = false;
     this.stick.id = this.mira.id = null;
     this.mirar.x = this.mirar.y = 0;
   }

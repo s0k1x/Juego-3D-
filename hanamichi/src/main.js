@@ -5,6 +5,7 @@ import { audio } from './audio.js';
 import { Interfaz } from './ui.js';
 import { Juego } from './juego.js';
 import { datos } from './datos.js';
+import { red, codigoSala } from './red.js';
 
 const canvas = document.getElementById('lienzo');
 const carga = document.getElementById('carga');
@@ -24,37 +25,77 @@ ui.marcarTactil(input.tactil);
 
 // ---------- Ajustes ----------
 const aj = datos.ajustes;
-aj.volumen = aj.volumen ?? audio.getVolume();
+const nombrePorDefecto = 'Jugador ' + (10 + ((Math.random() * 90) | 0));
+if (aj.volumen == null) aj.volumen = audio.getVolume();
 input.sensibilidad = aj.sensibilidad;
+input.correrSiempre = aj.correr;
+juego.camara.fovBase = aj.fov;
 render.setCalidad(aj.calidad);
-Object.assign(juego.config, { primaria: aj.primaria, dificultad: aj.dificultad, camara: aj.camara });
-juego.jugador.arsenal.reiniciar(aj.primaria);
+Object.assign(juego.config, { heroe: aj.heroe, dificultad: aj.dificultad, nombre: aj.nombre || nombrePorDefecto, bots: aj.bots });
+juego.cambiarHeroe(aj.heroe);
 ui.construirMenu(aj, (clave, v) => {
   audio.ui();
   datos.ajustar({ [clave]: v });
   if (clave === 'sensibilidad') input.sensibilidad = v;
   if (clave === 'volumen') audio.setVolume(v);
   if (clave === 'calidad') render.setCalidad(v);
-  if (clave === 'camara') { juego.config.camara = v; juego.camara.modo = v; }
-  if (clave === 'primaria') { juego.config.primaria = v; juego.jugador.arsenal.reiniciar(v); }
+  if (clave === 'fov') juego.camara.fovBase = v;
+  if (clave === 'correr') input.correrSiempre = v;
+  if (clave === 'heroe') juego.cambiarHeroe(v);
   if (clave === 'dificultad') juego.config.dificultad = v;
+  if (clave === 'nombre') juego.config.nombre = v || nombrePorDefecto;
 });
 ui.stats(datos.stats);
+
+// ---------- Online ----------
+const params = new URLSearchParams(location.search);
+const transporte = params.get('red') === 'local' ? 'local' : 'supabase';
+const salaUrl = (params.get('sala') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+const campoSala = document.getElementById('codigoSala');
+if (salaUrl) campoSala.value = salaUrl;
+
+function enlaceSala(sala) {
+  const u = new URL(location.href);
+  u.searchParams.set('sala', sala);
+  return u.toString();
+}
+
+async function entrar(sala) {
+  const ok = await juego.unirseOnline(sala, transporte);
+  if (ok) {
+    history.replaceState(null, '', enlaceSala(sala));
+    ui.toast(`Sala ${sala}: comparte el enlace para jugar con amigos`);
+  }
+}
 
 // ---------- Botones ----------
 const al = (id, fn) => document.getElementById(id).addEventListener('click', () => { audio.unlock(); audio.ui(); fn(); });
 al('btnJugar', () => juego.empezarPartida());
-al('btnRevancha', () => juego.empezarPartida());
+al('btnRapida', () => entrar('PUBLICA'));
+al('btnCrear', () => { const s = codigoSala(); campoSala.value = s; entrar(s); });
+al('btnUnirse', () => {
+  const s = campoSala.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (s.length < 3) { ui.toast('Escribe el código de la sala (3 a 6 letras)'); campoSala.focus(); return; }
+  entrar(s);
+});
+al('btnCancelarCon', () => { red.salir(); juego.salirAlMenu(); });
+al('btnRevancha', () => juego.revancha());
 al('btnSeguir', () => juego.seguir());
 al('btnAbandonar', () => juego.salirAlMenu());
-al('btnMenu', () => ui.menu());
+al('btnMenu', () => juego.salirAlMenu());
 al('btnPausa', () => juego.pausar());
 al('btnAjustes', () => ui.ajustes(true, 'menu'));
 al('btnAjustesPausa', () => ui.ajustes(true, 'pausa'));
 al('btnCerrarAjustes', () => ui.ajustes(false));
+al('btnInvitar', async () => {
+  const url = enlaceSala(red.sala);
+  try { await navigator.clipboard.writeText(url); ui.toast('Enlace copiado'); } catch { ui.toast(url); }
+});
+campoSala.addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('btnUnirse').click(); });
 addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse' && !ui.tactil) ui.marcarTactil(true); }, { passive: true });
+addEventListener('pagehide', () => red.salir());
 
-// Pausa automática al cambiar de pestaña.
+// Pausa automática al cambiar de pestaña (sin conexión).
 document.addEventListener('visibilitychange', () => { if (document.hidden) juego.pausar(); });
 
 // ---------- Tamaño ----------
@@ -66,7 +107,6 @@ function fotograma(ahora) {
   requestAnimationFrame(fotograma);
   const dt = Math.min(0.05, (ahora - ultimo) / 1000);
   ultimo = ahora;
-  // Con fotogramas largos dividimos la física en dos pasos (sin atravesar paredes).
   const pasos = dt > 1 / 45 ? 2 : 1;
   for (let i = 0; i < pasos; i++) juego.actualizar(dt / pasos);
   render.dibujar(juego.t);
@@ -76,9 +116,11 @@ requestAnimationFrame(fotograma);
 carga.hidden = true;
 ui.menu();
 
-window.hanamichi = { juego, render, audio };
+window.hanamichi = { juego, render, audio, red };
 
-// Modo sin conexión (no en desarrollo local).
+// Enlace de invitación: entra directamente en la sala.
+if (salaUrl && params.get('auto') !== '0') entrar(salaUrl);
+
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }

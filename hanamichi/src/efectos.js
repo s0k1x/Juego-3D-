@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { COLORES, rampa } from './render.js';
 
-const MAX_TRAZOS = 48, MAX_CHISPAS = 160;
+const MAX_TRAZOS = 96, MAX_CHISPAS = 320;
 
 export class Efectos {
   constructor(escena) {
@@ -16,7 +16,7 @@ export class Efectos {
     this.trazos = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
     this.trazos.frustumCulled = false;
     escena.add(this.trazos);
-    this.datosT = Array.from({ length: MAX_TRAZOS }, () => ({ vida: 0, a: new THREE.Vector3(), b: new THREE.Vector3(), color: new THREE.Color() }));
+    this.datosT = Array.from({ length: MAX_TRAZOS }, () => ({ vida: 0, max: 0.09, a: new THREE.Vector3(), b: new THREE.Vector3(), color: new THREE.Color() }));
 
     // Chispas: Points.
     const gp = new THREE.BufferGeometry();
@@ -35,7 +35,7 @@ export class Efectos {
       const r = i % 2 ? 0.06 : 0.17, a = (i / 10) * Math.PI * 2;
       i ? estrella.lineTo(Math.cos(a) * r, Math.sin(a) * r) : estrella.moveTo(r, 0);
     }
-    this.fogonazos = [0, 1].map(() => {
+    this.fogonazos = Array.from({ length: 8 }, () => {
       const m = new THREE.Mesh(new THREE.ShapeGeometry(estrella), new THREE.MeshBasicMaterial({ color: 0xFFF1B8, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
       m.visible = false; m.userData.vida = 0;
       escena.add(m);
@@ -43,7 +43,7 @@ export class Efectos {
     });
 
     // Explosiones: esfera toon + anillo (reutilizadas).
-    this.explosiones = [0, 1].map(() => {
+    this.explosiones = [0, 1, 2, 3].map(() => {
       const bola = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 2), new THREE.MeshToonMaterial({ color: 0xFFC27A, emissive: 0xFF7A4D, emissiveIntensity: 0.6, gradientMap: rampa, transparent: true }));
       const anillo = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: COLORES.sakura, transparent: true, side: THREE.DoubleSide, depthWrite: false }));
       bola.visible = anillo.visible = false;
@@ -53,9 +53,23 @@ export class Efectos {
     this.ocupado = false;
   }
 
-  trazo(a, b, color = 0xFFF1B8) {
-    const t = this.datosT.find((x) => x.vida <= 0) || this.datosT[0];
-    t.vida = 0.09; t.a.copy(a); t.b.copy(b); t.color.set(color);
+  trazo(a, b, color = 0xFFF1B8, vida = 0.09) {
+    const t = this.datosT.find((x) => x.vida <= 0) || this.datosT[(this._iT = ((this._iT || 0) + 1) % MAX_TRAZOS)];
+    t.vida = vida; t.max = vida; t.a.copy(a); t.b.copy(b); t.color.set(color);
+  }
+
+  // Rayo quebrado entre dos puntos (varios tramos con desvíos aleatorios).
+  rayo(a, b, color = 0x9BEFFF, tramos = 7) {
+    _r0.copy(a);
+    const l = a.distanceTo(b);
+    for (let i = 1; i <= tramos; i++) {
+      _r1.lerpVectors(a, b, i / tramos);
+      if (i < tramos) _r1.add(_r2.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(Math.min(1.2, l * 0.08)));
+      this.trazo(_r0, _r1, color, 0.22);
+      this.trazo(_r0, _r1, 0xFFFFFF, 0.12);
+      _r0.copy(_r1);
+    }
+    this.chispa(b, null, color, 14, 6);
   }
 
   chispa(p, normal, color = 0xFFE6A8, n = 6, fuerza = 4) {
@@ -70,8 +84,8 @@ export class Efectos {
     }
   }
 
-  fogonazo(p, camara, i = 0) {
-    const f = this.fogonazos[i];
+  fogonazo(p, camara) {
+    const f = this.fogonazos.find((x) => !x.visible) || this.fogonazos[0];
     f.position.copy(p);
     f.quaternion.copy(camara.quaternion);
     f.rotation.z = Math.random() * Math.PI;
@@ -79,13 +93,16 @@ export class Efectos {
     f.visible = true; f.userData.vida = 0.05;
   }
 
-  explosion(p, radio) {
+  // tipo: 'fuego' (granada, bola), 'onda' (solo anillo), 'hielo'
+  explosion(p, radio, tipo = 'fuego') {
     const e = this.explosiones.find((x) => x.vida <= 0) || this.explosiones[0];
     e.vida = 0.55; e.radio = radio;
     e.bola.position.copy(p); e.anillo.position.set(p.x, p.y + 0.05, p.z);
-    e.bola.visible = e.anillo.visible = true;
-    this.chispa(p, null, 0xFFB38A, 30, 9);
-    this.chispa(p, null, 0xFF8FB8, 20, 7);
+    const col = tipo === 'hielo' ? [0xD8F6FF, 0x6FC8FF, 0xBFEFFF] : tipo === 'onda' ? [0xC8F6FF, 0x3EE0FF, 0x3EE0FF] : [0xFFC27A, 0xFF7A4D, COLORES.sakura];
+    e.bola.material.color.setHex(col[0]); e.bola.material.emissive.setHex(col[1]); e.anillo.material.color.setHex(col[2]);
+    e.bola.visible = tipo !== 'onda'; e.anillo.visible = true;
+    this.chispa(p, null, tipo === 'fuego' ? 0xFFB38A : col[0], 30, 9);
+    this.chispa(p, null, col[2], 20, 7);
   }
 
   actualizar(dt) {
@@ -93,7 +110,7 @@ export class Efectos {
     for (let i = 0; i < MAX_TRAZOS; i++) {
       const t = this.datosT[i];
       let k = 0;
-      if (t.vida > 0) { t.vida -= dt; k = Math.max(0, t.vida / 0.09); }
+      if (t.vida > 0) { t.vida -= dt; k = Math.max(0, t.vida / t.max); }
       const a = _v.lerpVectors(t.b, t.a, k);
       const P = this.posT, Cc = this.colT, o = i * 6;
       P[o] = a.x; P[o + 1] = a.y; P[o + 2] = a.z; P[o + 3] = t.b.x; P[o + 4] = t.b.y; P[o + 5] = t.b.z;
@@ -136,4 +153,4 @@ export class Efectos {
   }
 }
 
-const _v = new THREE.Vector3();
+const _v = new THREE.Vector3(), _r0 = new THREE.Vector3(), _r1 = new THREE.Vector3(), _r2 = new THREE.Vector3();

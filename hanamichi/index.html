@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <meta name="theme-color" content="#2A2350">
-  <meta name="description" content="Hanamichi: duelos anime en 3D sobre una azotea al atardecer.">
+  <meta name="description" content="Hanamichi: arena de héroes anime en primera persona. Partidas rápidas contra bots u online.">
   <title>Hanamichi</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/icono.svg" type="image/svg+xml">
@@ -20,23 +20,39 @@
     <div class="lineas" id="lineas" aria-hidden="true"></div>
     <div class="mira-franco" id="miraFranco" hidden aria-hidden="true"></div>
     <div class="dano-borde" id="danoBorde" aria-hidden="true"></div>
+    <div class="borde-estado" id="bordeEstado" aria-hidden="true"></div>
 
     <!-- HUD -->
     <div class="hud" id="hud" hidden>
-      <div class="duelo" aria-label="Marcador">
-        <div class="duelo-lado duelo-yo"><span class="duelo-nombre">Tú</span><span class="pips" id="pipsYo"></span></div>
-        <div class="duelo-tiempo" id="tiempo">1:20</div>
-        <div class="duelo-lado duelo-rival"><span class="pips" id="pipsRival"></span><span class="duelo-nombre" id="nombreRival">Rin</span></div>
+      <div class="marcador" aria-label="Marcador">
+        <div class="m-lado m-yo"><span>Tú</span><b id="misBajas">0</b></div>
+        <div class="m-tiempo"><b id="tiempo">5:00</b><small id="meta">Primero a 20</small></div>
+        <div class="m-lado m-lider"><b id="liderBajas">0</b><span id="liderNombre">Líder</span></div>
       </div>
+      <div class="red-chip" id="redChip" hidden></div>
+      <ol class="feed" id="feed" aria-live="polite"></ol>
 
       <div class="cruz" id="cruz" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
       <div class="marca" id="marca" aria-hidden="true"></div>
       <div class="direccion" id="direccion" aria-hidden="true"></div>
       <div class="numeros" id="numeros" aria-hidden="true"></div>
+      <div class="anuncio" id="anuncio" aria-live="polite"></div>
 
       <div class="vida" aria-label="Vida">
-        <span class="vida-num" id="vidaNum">100</span>
-        <div class="vida-barra"><i id="vidaBarra"></i><b id="vidaFantasma"></b></div>
+        <span class="vida-heroe" id="vidaHeroe">Sakura</span>
+        <div class="vida-fila">
+          <span class="vida-num" id="vidaNum">100</span>
+          <div class="vida-barras">
+            <div class="escudo-barra"><i id="escudoBarra"></i></div>
+            <div class="vida-barra"><i id="vidaBarra"></i><b id="vidaFantasma"></b></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="poderes" id="poderes">
+        <div class="poder" data-k="q"><kbd>Q</kbd><span class="p-nombre"></span><span class="p-cd"></span></div>
+        <div class="poder" data-k="e"><kbd>E</kbd><span class="p-nombre"></span><span class="p-cd"></span></div>
+        <div class="poder definitiva" data-k="x"><kbd>X</kbd><span class="p-nombre"></span><span class="p-cd"></span></div>
       </div>
 
       <div class="arma">
@@ -50,6 +66,17 @@
       </button>
       <div class="aviso" id="aviso" aria-live="polite"></div>
       <div class="cuenta" id="cuenta" aria-live="polite"></div>
+
+      <div class="muerto" id="muerto" hidden>
+        <small>Te ha eliminado</small>
+        <b id="muertoNombre">—</b>
+        <span id="muertoHeroe"></span>
+        <p id="muertoCuenta">Reapareces en 3</p>
+      </div>
+      <div class="tabla" id="tabla" hidden>
+        <h2>Todos contra todos</h2>
+        <table><thead><tr><th>#</th><th>Jugador</th><th>Héroe</th><th>Bajas</th><th>Muertes</th></tr></thead><tbody id="tablaCuerpo"></tbody></table>
+      </div>
     </div>
 
     <!-- Controles táctiles -->
@@ -61,6 +88,10 @@
       <button type="button" class="t-btn t-recargar" data-accion="recargar" aria-label="Recargar">Recargar</button>
       <button type="button" class="t-btn t-arma" data-accion="siguiente" aria-label="Cambiar de arma">Arma</button>
       <button type="button" class="t-btn t-granada" data-accion="granada" aria-label="Lanzar granada">Granada</button>
+      <button type="button" class="t-btn t-poder t-q" data-accion="q" aria-label="Habilidad">Q</button>
+      <button type="button" class="t-btn t-poder t-e" data-accion="e" aria-label="Poder">E</button>
+      <button type="button" class="t-btn t-poder t-x" data-accion="x" aria-label="Definitiva">X</button>
+      <button type="button" class="t-btn t-tabla" data-accion="tabla" aria-label="Marcador">Tabla</button>
     </div>
 
     <!-- Menú principal -->
@@ -68,23 +99,39 @@
       <div class="titulo">
         <span class="kanji" aria-hidden="true">花道</span>
         <h1>Hanamichi</h1>
-        <p class="lema">Duelos uno contra uno en una azotea al atardecer. Gana quien se lleve cinco rondas.</p>
+        <p class="lema">Arena de héroes en primera persona. Elige héroe, entra y llega el primero a 20 bajas.</p>
       </div>
       <div class="panel">
-        <h2 class="panel-titulo">Elige tu arma</h2>
-        <div class="armas" id="armas" role="radiogroup" aria-label="Arma principal"></div>
-        <h2 class="panel-titulo">Rival</h2>
-        <div class="segmentos" id="dificultad" role="radiogroup" aria-label="Dificultad">
-          <button type="button" data-v="facil">Tranquilo</button>
-          <button type="button" data-v="normal">Equilibrado</button>
-          <button type="button" data-v="dificil">Implacable</button>
+        <label class="nombre-campo">Tu nombre <input id="nombre" type="text" maxlength="14" autocomplete="nickname" placeholder="Jugador"></label>
+        <h2 class="panel-titulo">Elige héroe</h2>
+        <div class="heroes" id="heroes" role="radiogroup" aria-label="Héroe"></div>
+        <div class="heroe-info" id="heroeInfo"></div>
+        <button class="btn btn-principal" id="btnJugar" type="button">Jugar contra bots</button>
+        <div class="segmentos" id="dificultad" role="radiogroup" aria-label="Dificultad de los bots">
+          <button type="button" data-v="facil">Tranquilos</button>
+          <button type="button" data-v="normal">Equilibrados</button>
+          <button type="button" data-v="dificil">Implacables</button>
         </div>
-        <button class="btn btn-principal" id="btnJugar" type="button">Empezar duelo</button>
+        <h2 class="panel-titulo">Online</h2>
+        <button class="btn btn-online" id="btnRapida" type="button">Partida rápida online</button>
+        <div class="sala">
+          <input id="codigoSala" type="text" maxlength="6" placeholder="Código de sala" autocapitalize="characters" spellcheck="false" aria-label="Código de sala">
+          <button class="btn-mini" id="btnUnirse" type="button">Unirse</button>
+          <button class="btn-mini" id="btnCrear" type="button">Crear sala</button>
+        </div>
         <div class="menu-pie">
-          <button class="btn-texto" id="btnAjustes" type="button">Ajustes</button>
-          <button class="btn-texto" type="button" disabled title="Llegará con la conexión a Supabase">Duelo online (pronto)</button>
+          <button class="btn-texto" id="btnAjustes" type="button">Ajustes y controles</button>
+          <p class="stats" id="statsMenu"></p>
         </div>
-        <p class="stats" id="statsMenu"></p>
+      </div>
+    </section>
+
+    <!-- Conectando -->
+    <section class="pantalla velo" id="pConectando" hidden>
+      <div class="caja">
+        <h2 class="grande" id="conTitulo">Conectando…</h2>
+        <p id="conTexto">Buscando la sala.</p>
+        <button class="btn btn-sec" id="btnCancelarCon" type="button">Volver</button>
       </div>
     </section>
 
@@ -92,9 +139,13 @@
     <section class="pantalla velo" id="pPausa" hidden>
       <div class="caja">
         <h2 class="grande">Pausa</h2>
+        <p class="nota" id="pausaNota" hidden>La partida online sigue mientras estás aquí.</p>
         <button class="btn btn-principal" id="btnSeguir" type="button">Seguir</button>
+        <h3 class="panel-titulo">Cambiar de héroe (al reaparecer)</h3>
+        <div class="heroes mini" id="heroesPausa"></div>
+        <button class="btn btn-sec" id="btnInvitar" type="button" hidden>Copiar enlace de invitación</button>
         <button class="btn btn-sec" id="btnAjustesPausa" type="button">Ajustes</button>
-        <button class="btn btn-sec" id="btnAbandonar" type="button">Abandonar duelo</button>
+        <button class="btn btn-sec" id="btnAbandonar" type="button">Salir al menú</button>
         <dl class="ayuda" id="ayuda"></dl>
       </div>
     </section>
@@ -103,14 +154,16 @@
     <section class="pantalla velo" id="pAjustes" hidden>
       <div class="caja">
         <h2 class="grande">Ajustes</h2>
-        <label class="ajuste">Sensibilidad <input type="range" id="ajSens" min="0.3" max="2.5" step="0.05"><output id="ajSensV"></output></label>
+        <label class="ajuste">Sensibilidad <input type="range" id="ajSens" min="0.2" max="3" step="0.05"><output id="ajSensV"></output></label>
+        <label class="ajuste">Campo de visión <input type="range" id="ajFov" min="65" max="105" step="1"><output id="ajFovV"></output></label>
         <label class="ajuste">Volumen <input type="range" id="ajVol" min="0" max="1" step="0.05"><output id="ajVolV"></output></label>
-        <div class="ajuste">Cámara
-          <div class="segmentos mini" id="ajCam"><button type="button" data-v="tercera">Tercera persona</button><button type="button" data-v="primera">Primera persona</button></div>
+        <div class="ajuste">Correr
+          <div class="segmentos mini" id="ajCorrer"><button type="button" data-v="si">Siempre (Mayús anda)</button><button type="button" data-v="no">Con Mayús</button></div>
         </div>
         <div class="ajuste">Calidad
           <div class="segmentos mini" id="ajCal"><button type="button" data-v="auto">Automática</button><button type="button" data-v="alta">Alta</button><button type="button" data-v="baja">Ligera</button></div>
         </div>
+        <dl class="ayuda" id="ayudaAjustes"></dl>
         <button class="btn btn-principal" id="btnCerrarAjustes" type="button">Listo</button>
       </div>
     </section>
@@ -119,14 +172,16 @@
     <section class="pantalla velo" id="pFin" hidden>
       <div class="caja fin">
         <h2 class="grande" id="finTitulo">Victoria</h2>
-        <p class="fin-marcador" id="finMarcador">5 – 3</p>
+        <p class="fin-marcador" id="finMarcador">1.º puesto</p>
+        <ol class="ranking" id="finRanking"></ol>
         <dl class="fin-stats" id="finStats"></dl>
         <p class="stats" id="finRacha"></p>
-        <button class="btn btn-principal" id="btnRevancha" type="button">Revancha</button>
+        <button class="btn btn-principal" id="btnRevancha" type="button">Otra partida</button>
         <button class="btn btn-sec" id="btnMenu" type="button">Volver al menú</button>
       </div>
     </section>
 
+    <div class="toast" id="toast" role="status" hidden></div>
     <div class="carga" id="carga">Preparando la azotea…</div>
   </main>
   <noscript>Hanamichi necesita JavaScript y WebGL.</noscript>

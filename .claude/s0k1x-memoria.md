@@ -8,3 +8,6 @@
 - Hanamichi (3D) en hanamichi/; Tinta movida a tinta/. Prueba: `node hanamichi/tests/prueba.mjs` (Chromium con --use-angle=swiftshader; los FPS ahí no son reales, mirar llamadas de dibujo).
 - Fuentes CJK: pedir a Google Fonts con `&text=花道` para un subconjunto mínimo.
 - Rotación de brazos del personaje: rotation.x = PI/2 es "al frente" (el brazo cuelga en -Y y el modelo mira a -Z).
+- Hanamichi 2: arena FFA en primera persona con 4 héroes (src/heroes.js, src/poderes.js) y vista en capa aparte (src/vista.js, render.escenaVista).
+- Online: Supabase Realtime (proyecto Sok1x, clave anon en src/config.js). Desde el contenedor *.supabase.co está bloqueado por el proxy; se prueba con `?sala=X&red=local` (BroadcastChannel, dos pestañas).
+- En la prueba, avanzar la simulación con `juego.actualizar(1/60)` en bucle: los fotogramas de swiftshader son lentos.
