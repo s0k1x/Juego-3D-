@@ -297,7 +297,9 @@ export class Juego {
     this.fx.descuadrar(1);
     this.fx.estallido(j.x, j.y, TINTA.azafran, 18, 240, 3);
     this.camaraLenta = 0.35;
-    if (this.input.mode === 'touch') navigator.vibrate?.(j.vivo ? 60 : [80, 40, 160]);
+    if (this.input.mode === 'touch' && navigator.userActivation?.hasBeenActive !== false) {
+      try { navigator.vibrate?.(j.vivo ? 60 : [80, 40, 160]); } catch { /* sin vibración */ }
+    }
     if (!j.vivo) {
       this.estado = 'muriendo';
       this.tMuerte = 1.4;

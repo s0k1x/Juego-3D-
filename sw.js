@@ -1,6 +1,6 @@
 // Service worker: guarda el juego para poder jugar sin conexión.
 // Al publicar una versión nueva, cambia VERSION para renovar la caché.
-const VERSION = 'tinta-v1';
+const VERSION = 'tinta-v2';
 const ARCHIVOS = [
   './', './index.html', './manifest.webmanifest', './assets/icon.svg',
   './assets/fonts/bigshoulders-stencil.woff2', './assets/fonts/atkinson-400.woff2', './assets/fonts/atkinson-700.woff2',
@@ -9,7 +9,8 @@ const ARCHIVOS = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(ARCHIVOS)).then(() => self.skipWaiting()));
+  // Archivo a archivo: si uno falla, el resto sigue disponible sin conexión.
+  e.waitUntil(caches.open(VERSION).then((c) => Promise.allSettled(ARCHIVOS.map((a) => c.add(a)))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -27,7 +28,10 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(
     fetch(req)
       .then((res) => {
-        if (res.ok) { const copia = res.clone(); caches.open(VERSION).then((c) => c.put(req, copia)); }
+        if (res.status === 200) {
+          const copia = res.clone();
+          e.waitUntil(caches.open(VERSION).then((c) => c.put(req, copia)).catch(() => {}));
+        }
         return res;
       })
       .catch(() => caches.match(req).then((r) => r || caches.match('./index.html'))),

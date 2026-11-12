@@ -20,7 +20,12 @@ export class Interfaz {
     this.hud.hidden = nombre === 'inicio' || nombre === 'fin';
     const btn = this.pantallas[nombre]?.querySelector('.btn');
     // En pausa y fin, el botón principal queda listo para Intro; en el inicio no, para no mostrar el foco al cargar.
-    if (btn && nombre !== 'inicio' && !matchMedia('(pointer: coarse)').matches) btn.focus({ preventScroll: true });
+    // Nunca robamos el foco a la web que nos contiene; en el fin esperamos un poco
+    // para que una tecla que siga pulsada no reinicie la partida sola.
+    if (btn && nombre !== 'inicio' && !matchMedia('(pointer: coarse)').matches) {
+      const enfocar = () => { if (document.hasFocus() && !btn.closest('[hidden]')) btn.focus({ preventScroll: true }); };
+      if (nombre === 'fin') setTimeout(enfocar, 600); else enfocar();
+    }
   }
 
   controles(modo) {

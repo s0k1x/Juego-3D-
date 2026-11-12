@@ -116,7 +116,8 @@ export class Efectos {
   dibujarDescuadre(ctx, canvas) {
     const k = this.descuadre;
     if (k <= 0.01) return;
-    const d = (this.reducido ? 4 : 14) * k * devicePixelRatio;
+    const dpr = canvas.width / (canvas.clientWidth || canvas.width);
+    const d = (this.reducido ? 4 : 14) * k * dpr;
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 0.5 * k;

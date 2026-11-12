@@ -26,7 +26,7 @@ export class Input {
   _bind() {
     const el = this.el;
     addEventListener('keydown', (e) => {
-      if (e.code === 'KeyP' || e.code === 'Escape') { this.pausaPulsada = true; e.preventDefault(); return; }
+      if (e.code === 'KeyP' || e.code === 'Escape') { if (!e.repeat) this.pausaPulsada = true; e.preventDefault(); return; }
       if (this.activo && /^(Arrow|Space)/.test(e.code)) e.preventDefault();
       this.keys.add(e.code);
       if (this.mode !== 'mouse' && /^Key[WASD]$/.test(e.code)) this.mode = 'mouse';
@@ -40,6 +40,7 @@ export class Input {
     el.addEventListener('pointermove', (e) => this._moveEv(e));
     el.addEventListener('pointerup', (e) => this._up(e));
     el.addEventListener('pointercancel', (e) => this._up(e));
+    addEventListener('pointerup', (e) => { if (e.pointerType === 'mouse' && e.button === 0) this.mouse.down = false; });
     el.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') this.mouse.dentro = false; });
   }
 
@@ -54,7 +55,11 @@ export class Input {
     if (e.pointerType === 'mouse') {
       this.mode = 'mouse';
       this.mouse.x = p.x; this.mouse.y = p.y; this.mouse.dentro = true;
-      if (e.button === 0) this.mouse.down = true;
+      if (e.button === 0) {
+        this.mouse.down = true;
+        // Así el soltar llega aunque ocurra fuera del lienzo o del iframe.
+        try { this.el.setPointerCapture(e.pointerId); } catch { /* sin captura */ }
+      }
       this.el.focus?.({ preventScroll: true });
       return;
     }
