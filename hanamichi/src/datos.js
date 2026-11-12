@@ -2,7 +2,7 @@
 // (modo privado o iframe sin almacenamiento) y con copia en memoria.
 const CLAVE = 'hanamichi:datos2';
 const BASE = {
-  ajustes: { sensibilidad: 1, fov: 80, calidad: 'auto', dificultad: 'normal', heroe: 'sakura', nombre: '', bots: 5, volumen: null, correr: true },
+  ajustes: { sensibilidad: 1, fov: 80, calidad: 'auto', dificultad: 'normal', heroe: 'sakura', nombre: '', bots: 5, volumen: null, correr: true, musica: 0.5, fps: false },
   stats: { partidas: 0, victorias: 0, bajas: 0, muertes: 0, mejorPartida: 0 },
 };
 

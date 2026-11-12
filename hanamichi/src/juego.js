@@ -9,7 +9,7 @@ import { Bot } from './bots.js';
 import { ARMAS, caidaDano, geometriaArma } from './armas.js';
 import { Efectos } from './efectos.js';
 import { Personaje, actualizarFrustum } from './personaje.js';
-import { materialContorno } from './render.js';
+import { materialContorno, materialContornoCaja } from './render.js';
 import { Vista } from './vista.js';
 import { Poderes, rayoEsfera } from './poderes.js';
 import { HEROES, LISTA_HEROES } from './heroes.js';
@@ -19,6 +19,8 @@ import { red } from './red.js';
 export const LIMITE_BAJAS = 20;
 const DURACION = 300;
 const REAPARICION = 3;
+const POS_BOTIQUIN = [[10, 0], [-10, 0], [2.5, 13.5], [-2.5, -13.5]];
+const CURA_BOTIQUIN = 50, ESPERA_BOTIQUIN = 15;
 const NOMBRES_BOT = ['Rin', 'Sora', 'Haru', 'Mei', 'Ren', 'Aoi', 'Kenji', 'Nao', 'Hina', 'Taro'];
 const RADIOS = { cabeza: 0.21, pecho: 0.34, piernas: 0.3 };
 const ZONAS = ['cabeza', 'pecho', 'piernas'];
@@ -72,7 +74,70 @@ export class Juego {
     });
     this._antesDisparo = false;
     this.maniquies = [];
+    this._crearBotiquines();
     this._prepararMenu();
+  }
+
+  // ---------- Botiquines ----------
+  _crearBotiquines() {
+    const geo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+    const mat = new THREE.MeshToonMaterial({ color: 0xFFF7EE, emissive: 0x7CF0A0, emissiveIntensity: 0.35 });
+    const matCruz = new THREE.MeshBasicMaterial({ color: 0x3BD67A });
+    const cruz = [new THREE.BoxGeometry(0.52, 0.14, 0.36), new THREE.BoxGeometry(0.52, 0.36, 0.14), new THREE.BoxGeometry(0.36, 0.14, 0.52), new THREE.BoxGeometry(0.14, 0.36, 0.52)];
+    const halo = new THREE.RingGeometry(0.5, 0.62, 24).rotateX(-Math.PI / 2);
+    this.botiquines = POS_BOTIQUIN.map(([x, z]) => {
+      const m = new THREE.Mesh(geo, mat);
+      for (const c of cruz) m.add(new THREE.Mesh(c, matCruz));
+      m.add(new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.58, 0.58), materialContornoCaja));
+      m.position.set(x, 0.75, z);
+      const h = new THREE.Mesh(halo, new THREE.MeshBasicMaterial({ color: 0x7CF0A0, transparent: true, opacity: 0.7, depthWrite: false }));
+      h.position.set(x, 0.03, z);
+      this.render.escena.add(m, h);
+      return { x, z, malla: m, halo: h, espera: 0 };
+    });
+  }
+
+  _botiquines(dt) {
+    for (let i = 0; i < this.botiquines.length; i++) {
+      const b = this.botiquines[i];
+      if (b.espera > 0) {
+        b.espera -= dt;
+        b.halo.material.opacity = 0.15;
+        if (b.espera <= 0) { b.malla.visible = true; _p.set(b.x, 0.75, b.z); this.efectos.chispa(_p, null, 0x7CF0A0, 10, 2); }
+        continue;
+      }
+      b.malla.rotation.y = this.t * 1.5;
+      b.malla.position.y = 0.75 + Math.sin(this.t * 2.5 + i) * 0.08;
+      b.halo.material.opacity = 0.5 + Math.sin(this.t * 4 + i) * 0.2;
+      if (this.fase !== 'combate') continue;
+      for (const c of this.combatientes) {
+        if (!c.local || !c.vivo || c.vida >= VIDA_MAX || c.pos.y > 1.2) continue;
+        if ((c.pos.x - b.x) ** 2 + (c.pos.z - b.z) ** 2 > 1.1) continue;
+        c.vida = Math.min(VIDA_MAX, c.vida + CURA_BOTIQUIN);
+        this._emitir({ k: 'bq', i, id: c.id });
+        break;
+      }
+    }
+  }
+
+  _botiquinCogido(i, id) {
+    const b = this.botiquines[i];
+    if (!b) return;
+    b.espera = ESPERA_BOTIQUIN; b.malla.visible = false;
+    _p.set(b.x, 0.9, b.z);
+    this.efectos.chispa(_p, null, 0x7CF0A0, 16, 3);
+    if (id === this.jugador.id) { this.audio.botiquin?.(); this.ui.botiquin?.(CURA_BOTIQUIN); }
+  }
+
+  // Botiquín disponible más cercano (para los bots heridos).
+  botiquinCercano(pos, max = 22) {
+    let mejor = null, md = max;
+    for (const b of this.botiquines) {
+      if (b.espera > 0) continue;
+      const d = Math.hypot(b.x - pos.x, b.z - pos.z);
+      if (d < md) { md = d; mejor = b; }
+    }
+    return mejor;
   }
 
   // ---------- Entidades ----------
@@ -206,6 +271,8 @@ export class Juego {
     for (const g of this.granadas) { g.activa = false; g.malla.visible = false; }
     this._nuevaPartida(this.online ? 0 : this.partidaN + 1);
     this.ui.empezarPartida(this);
+    this.audio.musica?.('combate');
+    this.audio.ambiente?.(true);
     this.input.activo = true;
     this.input.pedirBloqueo();
     red.avisarWeb('inicio');
@@ -225,6 +292,10 @@ export class Juego {
       if (this.esLocal(c)) this._aparecer(c);
     }
     this.multi.n = 0;
+    for (const b of this.botiquines) { b.espera = 0; b.malla.visible = true; }
+    this.poderes.limpiar();
+    this.mapa.limpiarDinamicas();
+    for (const g of this.granadas) { g.activa = false; g.malla.visible = false; }
     this.ui.nuevaPartida(this);
   }
 
@@ -237,6 +308,8 @@ export class Juego {
     const gano = ganadorId === this.jugador.id;
     if (gano) this.audio.victoriaFinal(); else this.audio.derrotaRonda();
     this.camaraLenta = 0.3;
+    this.audio.musica?.('menu');
+    this.audio.pocaVida?.(false);
     const ranking = this.ranking();
     const puesto = ranking.indexOf(this.jugador) + 1;
     const resumen = datos.registrarPartida({ gano, bajas: this.jugador.bajas, muertes: this.jugador.muertes });
@@ -277,6 +350,8 @@ export class Juego {
     this.input.soltarBloqueo();
     if (this.online) { red.salir(); this.online = false; this.pares.clear(); }
     this._prepararMenu();
+    this.audio.musica?.('menu');
+    this.audio.pocaVida?.(false);
     this.ui.menu();
   }
 
@@ -307,6 +382,7 @@ export class Juego {
     const muere = v.danar(dano, desde);
     if (info.empuje && v.vivo !== undefined) { v.vel.x += info.empuje[0]; v.vel.y += info.empuje[1]; v.vel.z += info.empuje[2]; v.suelo = false; }
     if (v === this.jugador) {
+      this.tAccion = 4;
       this.audio.dano();
       this.camara.sacudida = Math.min(1, this.camara.sacudida + 0.3);
       this.ui.recibirDano(angulo(v.dirGolpe - v.yaw), dano);
@@ -339,6 +415,7 @@ export class Juego {
         if (c) this._granadaVisual(c, _o.set(...ev.o), _d.set(...ev.v));
         break;
       }
+      case 'bq': this._botiquinCogido(ev.i, ev.id); break;
       case 'tajo': {
         const c = this.porId(ev.id);
         if (c) { c.golpeKatana = 1; c.katanaLado = -c.katanaLado; this.audio.katana(); }
@@ -452,6 +529,14 @@ export class Juego {
     this.audio.disparo(ars.tipo, esJug ? 0 : this.distOyente(c.pos));
     if (esJug) {
       this.vista.disparo(ars.tipo);
+      if (a.cargador) {
+        const cam = this.render.camara;
+        _q.set(1, 0.2, 0).applyQuaternion(cam.quaternion);
+        _p.set(0.2, -0.12, -0.45).applyQuaternion(cam.quaternion).add(cam.position);
+        this.efectos.casquillo(_p, _q, c.pos.y);
+        this.audio.casquillo?.();
+      }
+      this.tAccion = 4;
       const k = apunta ? 0.55 : 1;
       c.pitch = Math.min(1.45, c.pitch + a.retroceso * k);
       c.yaw += (Math.random() - 0.5) * a.retroceso * 0.6 * k;
@@ -759,6 +844,7 @@ export class Juego {
       }
     }
     this._granadas(dt);
+    this._botiquines(dt);
     this.poderes.actualizar(dt);
     this.mapa.actualizar(this.t, dt);
 
@@ -774,6 +860,10 @@ export class Juego {
     if (this.online && this.partidaN === 0 && this.anfitriona) this.partidaN = 1;
     this._gestionarBots();
     this._paqueteRed(dtReal);
+    // Música: sube de intensidad cuando hay acción y avisa con latido si queda poca vida.
+    this.tAccion = Math.max(0, (this.tAccion || 0) - dtReal);
+    this.audio.intensidad?.(combate ? 0.35 + Math.min(1, this.tAccion / 3) * 0.65 : 0.2);
+    this.audio.pocaVida?.(combate && j.vivo && j.vida <= 30);
 
     const apunta = inp.apuntando && j.vivo && combate && !j.arsenal.arma.cuerpo && !j.arsenal.arma.lanzable && j.arsenal.recargando <= 0;
     this.camara.actualizar(dtReal, j, apunta, j.arsenal.arma.zoom || 60, j.asesino);

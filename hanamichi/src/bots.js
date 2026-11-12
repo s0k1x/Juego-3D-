@@ -130,7 +130,9 @@ export class Bot {
       I.esprintar = ars.tipo === 'katana' || ars.tipo === 'escopeta' || ars.tipo === 'subfusil';
       if (I.esprintar && dist < 8 && c.suelo && Math.random() < dt * 0.8) I.deslizar = true;
     } else {
-      const destino = this.estado === 'cubrirse' ? this.cobertura : (this.ultimaPos || j.pos);
+      // Herido y sin rival a la vista: va a por un botiquín si hay uno cerca.
+      const botiquin = c.vida < 55 && this.estado === 'buscar' ? juego.botiquinCercano?.(c.pos) : null;
+      const destino = botiquin || (this.estado === 'cubrirse' ? this.cobertura : (this.ultimaPos || j.pos));
       this.tRuta -= dt;
       if (this.tRuta <= 0) {
         this.ruta = mapa.ruta(c.pos.x, c.pos.z, destino.x, destino.z);

@@ -21,6 +21,7 @@ const ui = new Interfaz();
 const input = new Input(canvas, document.getElementById('tactil'));
 const juego = new Juego({ render, input, audio, ui });
 input.onGesto = () => audio.unlock();
+let verFps = false;
 ui.marcarTactil(input.tactil);
 
 // ---------- Ajustes ----------
@@ -43,9 +44,14 @@ ui.construirMenu(aj, (clave, v) => {
   if (clave === 'correr') input.correrSiempre = v;
   if (clave === 'heroe') juego.cambiarHeroe(v);
   if (clave === 'dificultad') juego.config.dificultad = v;
+  if (clave === 'musica') audio.setMusicVolume?.(v);
+  if (clave === 'fps') { verFps = v; if (!v) ui.fps?.(null); }
   if (clave === 'nombre') juego.config.nombre = v || nombrePorDefecto;
 });
 ui.stats(datos.stats);
+verFps = !!aj.fps;
+audio.setMusicVolume?.(aj.musica ?? 0.5);
+audio.musica?.('menu');
 
 // ---------- Online ----------
 const params = new URLSearchParams(location.search);
@@ -102,7 +108,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) juego
 new ResizeObserver(() => render.redimensionar()).observe(canvas);
 
 // ---------- Bucle ----------
-let ultimo = performance.now();
+let ultimo = performance.now(), fpsN = 0, fpsT = 0;
 function fotograma(ahora) {
   requestAnimationFrame(fotograma);
   const dt = Math.min(0.05, (ahora - ultimo) / 1000);
@@ -111,6 +117,10 @@ function fotograma(ahora) {
   for (let i = 0; i < pasos; i++) juego.actualizar(dt / pasos);
   render.dibujar(juego.t);
   render.adaptar(dt);
+  if (verFps) {
+    fpsN++; fpsT += dt;
+    if (fpsT >= 0.5) { ui.fps?.(Math.round(fpsN / fpsT), juego.online ? red.estado : null); fpsN = 0; fpsT = 0; }
+  }
 }
 requestAnimationFrame(fotograma);
 carga.hidden = true;

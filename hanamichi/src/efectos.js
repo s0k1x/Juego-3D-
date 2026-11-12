@@ -51,6 +51,25 @@ export class Efectos {
       return { bola, anillo, vida: 0, radio: 1 };
     });
     this.ocupado = false;
+
+    // Casquillos: una sola malla instanciada.
+    const N = 24;
+    this.casquillos = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.008, 0.008, 0.035, 5), new THREE.MeshBasicMaterial({ color: 0xFFD27A }), N);
+    this.casquillos.frustumCulled = false;
+    this.casquillos.count = N;
+    escena.add(this.casquillos);
+    this.datosK = Array.from({ length: N }, () => ({ vida: 0, p: new THREE.Vector3(), v: new THREE.Vector3(), r: 0 }));
+    this._iK = 0;
+    _m4.makeScale(0, 0, 0);
+    for (let i = 0; i < N; i++) this.casquillos.setMatrixAt(i, _m4);
+  }
+
+  // Casquillo expulsado hacia `dir` desde `p`; rebota una vez en `suelo` (altura).
+  casquillo(p, dir, suelo = 0) {
+    const k = this.datosK[this._iK = (this._iK + 1) % this.datosK.length];
+    k.vida = 1.2; k.p.copy(p); k.suelo = suelo;
+    k.v.copy(dir).multiplyScalar(2 + Math.random()).add(_v.set((Math.random() - 0.5) * 0.6, 2 + Math.random(), (Math.random() - 0.5) * 0.6));
+    k.r = Math.random() * 6;
   }
 
   trazo(a, b, color = 0xFFF1B8, vida = 0.09) {
@@ -135,6 +154,19 @@ export class Efectos {
     this.chispas.geometry.attributes.position.needsUpdate = true;
     this.chispas.geometry.attributes.color.needsUpdate = true;
 
+    for (let i = 0; i < this.datosK.length; i++) {
+      const k = this.datosK[i];
+      if (k.vida <= 0) continue;
+      k.vida -= dt;
+      k.v.y -= 14 * dt;
+      k.p.addScaledVector(k.v, dt);
+      if (k.p.y < k.suelo + 0.02 && k.v.y < 0) { k.p.y = k.suelo + 0.02; k.v.y *= -0.35; k.v.x *= 0.5; k.v.z *= 0.5; }
+      k.r += dt * 14;
+      if (k.vida <= 0) _m4.makeScale(0, 0, 0);
+      else { _e.set(k.r, k.r * 0.7, 0); _m4.makeRotationFromEuler(_e).setPosition(k.p); }
+      this.casquillos.setMatrixAt(i, _m4);
+      this.casquillos.instanceMatrix.needsUpdate = true;
+    }
     for (const f of this.fogonazos) {
       if (!f.visible) continue;
       f.userData.vida -= dt;
@@ -153,4 +185,5 @@ export class Efectos {
   }
 }
 
+const _m4 = new THREE.Matrix4(), _e = new THREE.Euler();
 const _v = new THREE.Vector3(), _r0 = new THREE.Vector3(), _r1 = new THREE.Vector3(), _r2 = new THREE.Vector3();
