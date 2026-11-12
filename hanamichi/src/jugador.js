@@ -222,7 +222,9 @@ export class Combatiente {
 
   // Aplica daño (lo llama el dueño de la entidad). Devuelve true si muere.
   danar(cantidad, desde) {
+    this.golpeado = false;
     if (!this.vivo || this.protegido > 0) return false;
+    this.golpeado = true;
     if (this.escudo > 0) {
       const a = Math.min(this.escudo, cantidad);
       this.escudo -= a; cantidad -= a;

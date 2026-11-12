@@ -68,7 +68,9 @@ export class Input {
     document.addEventListener('pointerlockchange', () => {
       const antes = this.bloqueado;
       this.bloqueado = document.pointerLockElement === c;
-      if (antes && !this.bloqueado && this.activo) this.pulsados.add('pausa'); // Esc del navegador
+      const propia = this._sueltaPropia;
+      this._sueltaPropia = false;
+      if (antes && !this.bloqueado && this.activo && !propia) this.pulsados.add('pausa'); // Esc del navegador
       if (!this.bloqueado) { this.disparando = false; this.apuntando = false; }
     });
   }
@@ -82,7 +84,7 @@ export class Input {
     } catch { normal(); }
   }
 
-  soltarBloqueo() { if (document.pointerLockElement) document.exitPointerLock(); }
+  soltarBloqueo() { if (document.pointerLockElement) { this._sueltaPropia = true; document.exitPointerLock(); } }
 
   _tactil() {
     const c = this.canvas;
@@ -195,6 +197,7 @@ export class Input {
     this.pulsados.clear();
     this.disparando = this.apuntando = false;
     this.tablaTactil = false;
+    this.botones?.querySelector('.fijo')?.classList.remove('fijo');
     this.stick.id = this.mira.id = null;
     this.mirar.x = this.mirar.y = 0;
   }

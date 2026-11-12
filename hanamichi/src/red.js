@@ -60,14 +60,20 @@ class TransporteSupabase {
         clearInterval(this.latido);
         const estaba = this.unido;
         this.unido = false;
-        if (this.cerrando) return;
-        if (!estaba) { clearTimeout(limite); mal(new Error('cerrado')); return; }
-        // Reconexión con espera creciente.
-        this.alEstado?.('reconectando');
-        const espera = Math.min(8000, 800 * 2 ** this.intentos++);
-        setTimeout(() => { if (!this.cerrando) this.unirse().catch(() => this.alEstado?.(this.intentos > 5 ? 'caido' : 'reconectando')); }, espera);
+        clearTimeout(limite);
+        if (this.cerrando) { mal(new Error('cancelado')); return; }
+        if (!estaba) { mal(new Error('cerrado')); return; }
+        this._reconectar();
       };
     });
+  }
+
+  // Reconexión con espera creciente; insiste hasta que vuelve la red o se sale de la sala.
+  _reconectar() {
+    if (this.cerrando) return;
+    this.alEstado?.(this.intentos > 5 ? 'caido' : 'reconectando');
+    const espera = Math.min(8000, 800 * 2 ** Math.min(4, this.intentos++));
+    setTimeout(() => { if (!this.cerrando) this.unirse().catch(() => this._reconectar()); }, espera);
   }
 
   _mandar(o) { if (this.ws?.readyState === 1) { try { this.ws.send(JSON.stringify(o)); } catch { /* nada */ } } }
@@ -104,15 +110,18 @@ export class Red {
     this.sala = sala;
     this._estado('conectando');
     const recibir = (m) => { if (m && m.p !== this.yo) { this.recibidos++; this.alMensaje?.(m); } };
-    this.t = tipo === 'local' ? new TransporteLocal(sala, recibir) : new TransporteSupabase(sala, recibir, (e) => this._estado(e));
+    const t = tipo === 'local' ? new TransporteLocal(sala, recibir) : new TransporteSupabase(sala, recibir, (e) => { if (this.t === t) this._estado(e); });
+    this.t = t;
     try {
-      await this.t.unirse();
-      this._estado('conectado');
+      await t.unirse();
     } catch (e) {
-      this.t = null;
-      this._estado('desconectado');
+      try { t.salir(); } catch { /* nada */ }
+      // Si mientras tanto se canceló o se entró en otra sala, este intento ya no cuenta.
+      if (this.t === t) { this.t = null; this._estado('desconectado'); }
       throw e;
     }
+    if (this.t !== t) { try { t.salir(); } catch { /* nada */ } throw new Error('cancelado'); }
+    this._estado('conectado');
   }
 
   _estado(e) { this.estado = e; this.alEstado?.(e); }

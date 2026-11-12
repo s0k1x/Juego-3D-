@@ -102,7 +102,10 @@ addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse' && !ui.ta
 addEventListener('pagehide', () => red.salir());
 
 // Pausa automática al cambiar de pestaña (sin conexión).
-document.addEventListener('visibilitychange', () => { if (document.hidden) juego.pausar(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && !juego.online) juego.pausar(); });
+// Online con la pestaña oculta: el navegador para los fotogramas, así que mantenemos un latido
+// para que los demás no nos den por desconectados.
+setInterval(() => { if (document.hidden && juego.online) juego.latidoRed(); }, 500);
 
 // ---------- Tamaño ----------
 new ResizeObserver(() => render.redimensionar()).observe(canvas);

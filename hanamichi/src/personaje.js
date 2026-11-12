@@ -240,7 +240,9 @@ export class Personaje {
     this.escena.remove(this.raiz);
     this.raiz.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
     this.material.dispose();
-    this.etiqueta?.material.map.dispose();
+    this.matArma.dispose();
+    this.burbuja.material.dispose();
+    if (this.etiqueta) { this.etiqueta.material.map.dispose(); this.etiqueta.material.dispose(); }
   }
 
   // e: { pos, yaw, pitch, vel, suelo, deslizando, agachado, vivo, golpeKatana, katanaLado, recarga, lanzando,

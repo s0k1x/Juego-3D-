@@ -2,6 +2,7 @@
 // parámetros (origen, destino...), así todos ven lo mismo. El daño lo aplica solo el dueño del poder.
 import * as THREE from 'three';
 import { HEROES, CARGA_DEFINITIVA } from './heroes.js';
+import { ARMAS } from './armas.js';
 import { materialContorno, rampa } from './render.js';
 
 const _o = new THREE.Vector3(), _d = new THREE.Vector3(), _p = new THREE.Vector3(), _q = new THREE.Vector3(), _n = new THREE.Vector3();
@@ -143,7 +144,7 @@ export class Poderes {
         break;
       }
       case 'tormenta': {
-        if (dueno) { c.ult = 8; for (const k in c.arsenal.municion) c.arsenal.municion[k] = Math.max(c.arsenal.municion[k], 0); }
+        if (dueno) { c.ult = 8; c.arsenal.recargando = 0; for (const k in c.arsenal.municion) c.arsenal.municion[k] = ARMAS[k].cargador ?? 0; }
         _p.set(c.pos.x, c.pos.y + 0.1, c.pos.z);
         if (!esYo) { ef.explosion(_p, 3, 'onda'); ef.chispa(_p, null, 0xFF8FB8, 40, 6); }
         au.definitiva(dist);

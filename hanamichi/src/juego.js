@@ -149,8 +149,10 @@ export class Juego {
   }
 
   _quitar(c) {
+    const i = this.combatientes.indexOf(c);
+    if (i < 0) return;
     c.destruir();
-    this.combatientes.splice(this.combatientes.indexOf(c), 1);
+    this.combatientes.splice(i, 1);
     this.indice.delete(c.id);
     this.bots.delete(c.id);
   }
@@ -197,6 +199,7 @@ export class Juego {
     this.fase = 'menu';
     this.camaraLenta = 1;
     for (const c of [...this.combatientes]) if (c !== this.jugador) this._quitar(c);
+    this.jugador.proximoHeroe = null;
     this.jugador.setHeroe(this.config.heroe);
     this.jugador.reiniciar(new THREE.Vector3(3.8, 0, 14), 0);
     this.jugador.modelo.setVisible(true);
@@ -221,7 +224,8 @@ export class Juego {
 
   cambiarHeroe(h) {
     this.config.heroe = h;
-    if (this.fase === 'menu' || this.fase === 'finPartida') {
+    if (this.fase === 'menu' || (this.fase === 'finPartida' && !this.online)) {
+      this.jugador.proximoHeroe = null;
       this.jugador.setHeroe(h);
       this.jugador.modelo.setVisible(true);
       this._maniquies(true);
@@ -234,6 +238,7 @@ export class Juego {
 
   // Partida contra bots (sin conexión).
   empezarPartida() {
+    this._intento = (this._intento || 0) + 1;
     if (this.online) red.salir();
     this.online = false;
     this._iniciar();
@@ -243,13 +248,16 @@ export class Juego {
   // Partida online. tipo: 'supabase' | 'local'.
   async unirseOnline(sala, tipo = 'supabase') {
     this.ui.conectando(sala);
+    const intento = (this._intento = (this._intento || 0) + 1);
     try {
       await red.conectar(sala, tipo);
     } catch (e) {
+      if (intento !== this._intento || e?.message === 'cancelado') return false;
       console.warn('Sin conexión online:', e?.message);
       this.ui.errorRed('No se ha podido conectar con la sala. Revisa tu conexión o juega contra bots.');
       return false;
     }
+    if (intento !== this._intento) return false;
     this.online = true;
     this.pares.clear();
     this.unidoEn = Date.now();
@@ -286,6 +294,8 @@ export class Juego {
     this.feed.length = 0;
     this.ganador = null;
     this.camaraLenta = 1;
+    this.jugo = false;
+    if (this.pausado) { this.pausado = false; this.input.limpiar(); }
     for (const c of this.combatientes) {
       c.bajas = 0; c.muertes = 0; c.racha = 0; c.carga = 0;
       c.stats = { disparos: 0, aciertos: 0, cabezas: 0, dano: 0 };
@@ -302,6 +312,8 @@ export class Juego {
   _terminarPartida(ganadorId) {
     if (this.fase === 'finPartida') return;
     this.fase = 'finPartida';
+    this.pausado = false;
+    this.input.limpiar();
     this.tFase = 10;
     this.ganador = ganadorId;
     const g = this.porId(ganadorId);
@@ -312,7 +324,7 @@ export class Juego {
     this.audio.pocaVida?.(false);
     const ranking = this.ranking();
     const puesto = ranking.indexOf(this.jugador) + 1;
-    const resumen = datos.registrarPartida({ gano, bajas: this.jugador.bajas, muertes: this.jugador.muertes });
+    const resumen = this.jugo ? datos.registrarPartida({ gano, bajas: this.jugador.bajas, muertes: this.jugador.muertes }) : { ...datos.stats };
     this.input.soltarBloqueo();
     this.ui.finPartida({ gano, ganador: g?.nombre ?? '—', ranking, jugador: this.jugador, puesto, resumen, online: this.online });
     red.avisarWeb('fin', { gano, puesto, bajas: this.jugador.bajas });
@@ -339,12 +351,14 @@ export class Juego {
   seguir() {
     if (!this.pausado) return;
     this.pausado = false;
+    if (this.fase === 'finPartida' || this.fase === 'menu') return;
     this.input.limpiar();
     this.input.pedirBloqueo();
     this.ui.pausa(false);
   }
 
   salirAlMenu() {
+    this._intento = (this._intento || 0) + 1;
     this.pausado = false;
     this.input.activo = false;
     this.input.soltarBloqueo();
@@ -372,7 +386,7 @@ export class Juego {
       }
     }
     if (this.esLocal(victima)) this.recibirDano(atacante?.id, victima, dano, info, atacante?.pos);
-    else red.evento({ k: 'd', a: atacante?.id, v: victima.id, n: dano, c: info.cabeza ? 1 : 0, w: info.arma, e: info.empuje });
+    else red.evento({ k: 'd', p: this.partidaN, a: atacante?.id, v: victima.id, n: dano, c: info.cabeza ? 1 : 0, w: info.arma, e: info.empuje });
   }
 
   // Lo ejecuta el dueño de la víctima.
@@ -380,14 +394,15 @@ export class Juego {
     if (!v.vivo) return;
     if (this.fase !== 'combate') return;
     const muere = v.danar(dano, desde);
-    if (info.empuje && v.vivo !== undefined) { v.vel.x += info.empuje[0]; v.vel.y += info.empuje[1]; v.vel.z += info.empuje[2]; v.suelo = false; }
+    if (!v.golpeado) return;
+    if (info.empuje) { v.vel.x += info.empuje[0]; v.vel.y += info.empuje[1]; v.vel.z += info.empuje[2]; v.suelo = false; }
     if (v === this.jugador) {
       this.tAccion = 4;
       this.audio.dano();
       this.camara.sacudida = Math.min(1, this.camara.sacudida + 0.3);
       this.ui.recibirDano(angulo(v.dirGolpe - v.yaw), dano);
     }
-    if (muere) this._emitir({ k: 'm', v: v.id, a: atacanteId, c: info.cabeza ? 1 : 0, w: info.arma || 'arma' });
+    if (muere) this._emitir({ k: 'm', p: this.partidaN, v: v.id, a: atacanteId, c: info.cabeza ? 1 : 0, w: info.arma || 'arma' });
   }
 
   // Evento que se procesa aquí y se manda a los demás.
@@ -395,6 +410,8 @@ export class Juego {
   enviarFx(ev) { if (this.online) red.evento(ev); }
 
   _evento(ev, propio = false) {
+    // Daños y bajas de una partida anterior (llegan tarde): se descartan.
+    if ((ev.k === 'd' || ev.k === 'm') && ev.p !== this.partidaN) return;
     switch (ev.k) {
       case 'd': {
         const v = this.porId(ev.v);
@@ -684,11 +701,12 @@ export class Juego {
 
   _partidaRemota(pt) {
     if (pt.n !== this.partidaN) {
-      this._nuevaPartida(pt.n);
-      this.ui.empezarPartida(this);
+      if (this.partidaN === 0 && this.fase === 'preparacion') this.partidaN = pt.n; // recién llegada: adopta la partida en curso
+      else { this._nuevaPartida(pt.n); this.ui.empezarPartida(this); this.input.pedirBloqueo(); }
     }
     this.tiempo = pt.t;
-    if (pt.k) for (const [id, b, mu] of pt.k) { const c = this.porId(id); if (c) { c.bajas = b; c.muertes = mu; } }
+    // El marcador de la anfitriona manda, pero nunca hace retroceder un contador ya visto aquí.
+    if (pt.k) for (const [id, b, mu] of pt.k) { const c = this.porId(id); if (c) { c.bajas = Math.max(c.bajas, b); c.muertes = Math.max(c.muertes, mu); } }
     if (pt.f === 'combate' && this.fase === 'preparacion') this.fase = 'combate';
     if (pt.f === 'fin' && this.fase !== 'finPartida') this._terminarPartida(pt.g);
   }
@@ -734,6 +752,8 @@ export class Juego {
     this.ui.estadoRed(red.estado, red.sala, this.pares.size);
   }
 
+  latidoRed() { this.tRed = 0; this._paqueteRed(0); }
+
   _paqueteRed(dt) {
     if (!this.online) return;
     const humanos = 1 + this.pares.size;
@@ -756,7 +776,7 @@ export class Juego {
     const m = { j: this.unidoEn, s };
     if (this.anfitriona) {
       m.pt = { n: this.partidaN, t: Math.round(this.tiempo), f: this.fase === 'finPartida' ? 'fin' : this.fase, g: this.ganador };
-      if ((this._tTabla = (this._tTabla || 0) + 1) % 4 === 0) m.pt.k = this.combatientes.map((c) => [c.id, c.bajas, c.muertes]);
+      if ((this._tTabla = (this._tTabla || 0) + 1) % 4 === 0 || this.fase === 'finPartida') m.pt.k = this.combatientes.map((c) => [c.id, c.bajas, c.muertes]);
     }
     red.paquete(m);
   }
@@ -803,6 +823,7 @@ export class Juego {
     }
 
     const combate = this.fase === 'combate';
+    if (combate) this.jugo = true;
     const I = this._intent || (this._intent = {});
     const mover = combate && controla;
     I.x = mover ? inp.mover.x : 0; I.y = mover ? inp.mover.y : 0;
