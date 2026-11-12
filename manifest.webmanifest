@@ -1,0 +1,15 @@
+{
+  "name": "Tinta",
+  "short_name": "Tinta",
+  "description": "Shooter de arena a dos tintas. Sobrevive a las oleadas.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#1B1F5E",
+  "theme_color": "#1B1F5E",
+  "icons": [
+    { "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

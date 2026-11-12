@@ -1,0 +1,6 @@
+Tipografías incluidas (subconjunto latino, woff2), ambas con licencia SIL Open Font License 1.1:
+
+- Big Shoulders Stencil Display — Copyright The Big Shoulders Project Authors (https://github.com/xotypeco/big_shoulders)
+- Atkinson Hyperlegible — Copyright Braille Institute of America, Inc. (https://www.brailleinstitute.org/freefont)
+
+Texto de la licencia: https://openfontlicense.org
